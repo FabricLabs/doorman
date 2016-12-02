@@ -1,0 +1,31 @@
+{
+  "name": "doorman",
+  "version": "0.1.0",
+  "description": "simple community management",
+  "main": "doorman.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/martindale/doorman.git"
+  },
+  "keywords": [
+    "maki",
+    "slack",
+    "community",
+    "invite",
+    "slackin",
+    "invitations"
+  ],
+  "author": "Eric Martindale",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/martindale/doorman/issues"
+  },
+  "homepage": "https://github.com/martindale/doorman#readme",
+  "dependencies": {
+    "maki": "martindale/maki#0.3",
+    "maki-client-level": "^0.1.0"
+  }
+}
