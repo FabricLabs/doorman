@@ -1,0 +1,12 @@
+{
+	"discord": {
+		"bot_token": "xxxx",
+		"client_id": "xxxx"
+	},
+	"slack": {
+		"bot_token": "xoxb-xxxxxxxx"
+	},
+	"youtube_api_key": "create one here https://console.developers.google.com",
+	"brewerydb_api_key": "xxxx",
+	"dictionary_api_key": "xxxxx"
+}

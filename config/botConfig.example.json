@@ -1,0 +1,15 @@
+{
+    "debug": true,
+    "commandPrefix": "!",
+    "elizaEnabled": true,
+    "discord": {
+        "enabled": true,
+        "serverName": "server name",
+        "welcomeChannel": "channel id",
+        "pruneInterval": 10,
+        "pruneMax": 100
+    },
+    "slack": {
+        "enabled": true
+    }
+}

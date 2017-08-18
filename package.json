@@ -1,6 +1,6 @@
 {
   "name": "doorman",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "simple community management",
   "main": "doorman.js",
   "scripts": {
@@ -19,6 +19,9 @@
     "invitations"
   ],
   "author": "Eric Martindale",
+	"contributors": [
+    "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)"
+  ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/martindale/doorman/issues"
@@ -26,6 +29,12 @@
   "homepage": "https://github.com/martindale/doorman#readme",
   "dependencies": {
     "maki": "martindale/maki#0.3",
-    "maki-client-level": "^0.1.0"
+    "maki-client-level": "^0.1.0",
+		"chalk": "^2.0.1",
+		"bufferutil": "^3.0.1",
+		"discord.js": "^11.1.0",
+		"erlpack": "hammerandchisel/erlpack",
+		"uws": "^0.14.1",
+		"@slack/client": "^3.11.0"
   }
 }
