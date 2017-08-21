@@ -19,7 +19,7 @@
     "invitations"
   ],
   "author": "Eric Martindale",
-	"contributors": [
+  "contributors": [
     "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)"
   ],
   "license": "MIT",
@@ -28,13 +28,24 @@
   },
   "homepage": "https://github.com/martindale/doorman#readme",
   "dependencies": {
+    "@slack/client": "^3.11.0",
+    "bufferutil": "^3.0.1",
+    "chalk": "^2.0.1",
+    "d20": "^1.4.1",
+    "discord.js": "^11.1.0",
+    "erlpack": "hammerandchisel/erlpack",
+    "leet": "^1.3.0",
+    "libsodium-wrappers": "^0.5.2",
     "maki": "martindale/maki#0.3",
     "maki-client-level": "^0.1.0",
-		"chalk": "^2.0.1",
-		"bufferutil": "^3.0.1",
-		"discord.js": "^11.1.0",
-		"erlpack": "hammerandchisel/erlpack",
-		"uws": "^0.14.1",
-		"@slack/client": "^3.11.0"
+    "node-opus": "^0.2.6",
+    "opusscript": "0.0.3",
+    "sodium": "^2.0.1",
+    "unshort": "^1.0.0",
+    "urban": "^0.3.1",
+    "uws": "^0.14.1",
+    "wikijs": "^4.0.0",
+    "xml2js": "^0.4.18",
+    "youtube-dl": "^1.11.1"
   }
 }

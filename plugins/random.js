@@ -16,7 +16,7 @@ exports.commands = [
 	'choose'
 ]
 
-var factsData = require('./data.js');
+var factsData = require('../lib/data.js');
 
 exports.math_fact = {
 	usage: '<random math>',

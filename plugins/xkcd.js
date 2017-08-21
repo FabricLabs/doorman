@@ -1,4 +1,4 @@
-const Kirbi = require('../../kirbi');
+const Doorman = require('../../doorman');
 
 exports.commands = [
 	'xkcd',
@@ -16,7 +16,7 @@ exports.xkcd = {
 			try {
 				var comic = JSON.parse(body);
 				cb({embed: {
-					color: Kirbi.Config.discord.defaultEmbedColor,
+					color: Doorman.Config.discord.defaultEmbedColor,
 					title: `XKCD ${comic.num} ${comic.title}`,
 					image: {
 						url: comic.img

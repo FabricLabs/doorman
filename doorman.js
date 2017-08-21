@@ -2,12 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 
-console.log(chalk.green(`Starting Kirbi...`));
+console.log(chalk.green(`Starting Doorman...`));
 console.log(chalk.green(`Node version: ${process.version}`));
 
 //set up global config stuff
-exports.Config = require('../config/botConfig');
-exports.Auth = require('../config/auth');
+exports.Config = require('./config/botConfig');
+exports.Auth = require('./config/auth');
 
 //helpers
 exports.getFileArray = function (srcPath) {
