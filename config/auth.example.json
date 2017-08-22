@@ -1,7 +1,6 @@
 {
 	"discord": {
-		"bot_token": "xxxx",
-		"client_id": "xxxx"
+		"bot_token": "xxxx"
 	},
 	"slack": {
 		"bot_token": "xoxb-xxxxxxxx"
