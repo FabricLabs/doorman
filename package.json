@@ -39,7 +39,17 @@
 	  "maki-client-level": "^0.1.0",
 	  "node-opus": "^0.2.6",
 	  "sodium": "^2.0.1",
-	  "youtube-dl": "^1.11.1"
+		"youtube-dl": "^1.11.1",
+		"doorman-admin": "FabricLabs/doorman-admin",
+		"doorman-beer-lookup": "FabricLabs/doorman-beer-lookup",
+		"doorman-cocktail-lookup": "FabricLabs/doorman-cocktail-lookup",
+		"doorman-dictionary": "FabricLabs/doorman-dictionary",
+		"doorman-xkcd": "FabricLabs/doorman-xkcd",
+		"doorman-translator": "FabricLabs/doorman-translator",
+		"doorman-dice": "FabricLabs/doorman-dice",
+		"doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
+		"doorman-wikipedia": "FabricLabs/doorman-wikipedia",
+		"doorman-misc": "FabricLabs/doorman-misc"
 	}
 }
   
