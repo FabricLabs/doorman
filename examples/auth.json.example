@@ -1,7 +1,6 @@
 {
 	"discord": {
 		"bot_token" : "bot token",
-		"client_id" : "client id if you want people to be able to invite it to their server"
 	},
 	"slack": {
 		"bot_token": "bot token",
