@@ -1,31 +1,45 @@
 {
-  "name": "doorman",
-  "version": "0.1.0",
-  "description": "simple community management",
-  "main": "doorman.js",
-  "scripts": {
-    "test": "mocha"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/martindale/doorman.git"
-  },
-  "keywords": [
-    "maki",
-    "slack",
-    "community",
-    "invite",
-    "slackin",
-    "invitations"
-  ],
-  "author": "Eric Martindale",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/martindale/doorman/issues"
-  },
-  "homepage": "https://github.com/martindale/doorman#readme",
-  "dependencies": {
-    "maki": "martindale/maki#0.3",
-    "maki-client-level": "^0.1.0"
-  }
+	"name": "doorman",
+	"version": "0.2.0",
+	"description": "simple community management",
+	"main": "doorman.js",
+	"scripts": {
+	  "test": "mocha"
+	},
+	"repository": {
+	  "type": "git",
+	  "url": "git+https://github.com/fabriclabs/doorman.git"
+	},
+	"keywords": [
+	  "maki",
+	  "slack",
+	  "community",
+	  "invite",
+	  "slackin",
+	  "invitations"
+	],
+	"author": "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
+	"contributors": [
+	  "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
+	  "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
+	],
+	"license": "MIT",
+	"bugs": {
+	  "url": "https://github.com/fabriclabs/doorman/issues"
+	},
+	"homepage": "https://github.com/fabriclabs/doorman#readme",
+	"dependencies": {
+	  "@slack/client": "^3.11.0",
+	  "bufferutil": "^3.0.1",
+	  "chalk": "^2.0.1",
+	  "discord.js": "^11.1.0",
+	  "erlpack": "hammerandchisel/erlpack",
+	  "libsodium-wrappers": "^0.5.2",
+	  "maki": "martindale/maki#0.3",
+	  "maki-client-level": "^0.1.0",
+	  "node-opus": "^0.2.6",
+	  "sodium": "^2.0.1",
+	  "youtube-dl": "^1.11.1"
+	}
 }
+  

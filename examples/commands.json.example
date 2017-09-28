@@ -1,0 +1,12 @@
+[
+    {
+        "command": "reddit",
+        "description": "reddit link",
+        "response": "https://reddit.com/r/grey_online"
+    },
+    {
+        "command": "donate",
+        "description": "DONATE ALL THE MONIES",
+        "response": "You can donate here: <https://www.paypal.me/nebula>\nOR\nsend bitcoin to: `1PxwKxJiDdhpX14YKjGfwsPUberN8aK5Ka`"
+    }
+]
