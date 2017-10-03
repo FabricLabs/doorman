@@ -4,7 +4,7 @@
   "description": "simple community management",
   "main": "doorman.js",
   "scripts": {
-    "test": "semistandard &&NODE_ENV=test mocha --recursive",
+    "test": "NODE_ENV=test mocha --recursive",
     "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive"
   },
   "repository": {
