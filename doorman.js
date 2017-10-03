@@ -38,7 +38,7 @@ exports.resolveMention = function (usertxt) {
   return userid;
 };
 
-exports.Auth = require('./config/auth');;
+exports.Auth = require('./config/auth');
 exports.Config = require('./config/botConfig');
 
 // Now for the good stuff!
