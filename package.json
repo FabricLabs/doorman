@@ -1,44 +1,44 @@
 {
 	"name": "doorman",
-	"version": "0.2.0",
+	"version": "0.2.0-pre",
 	"description": "simple community management",
 	"main": "doorman.js",
 	"scripts": {
-	  "test": "mocha"
+		"test": "semistandard && mocha"
 	},
 	"repository": {
-	  "type": "git",
-	  "url": "git+https://github.com/fabriclabs/doorman.git"
+		"type": "git",
+		"url": "git+https://github.com/fabriclabs/doorman.git"
 	},
 	"keywords": [
-	  "maki",
-	  "slack",
-	  "community",
-	  "invite",
-	  "slackin",
-	  "invitations"
+		"maki",
+		"slack",
+		"community",
+		"invite",
+		"slackin",
+		"invitations"
 	],
 	"author": "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
 	"contributors": [
-	  "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
-	  "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
+		"Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
+		"Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
 	],
 	"license": "MIT",
 	"bugs": {
-	  "url": "https://github.com/fabriclabs/doorman/issues"
+		"url": "https://github.com/fabriclabs/doorman/issues"
 	},
 	"homepage": "https://github.com/fabriclabs/doorman#readme",
 	"dependencies": {
-	  "@slack/client": "^3.11.0",
-	  "bufferutil": "^3.0.1",
-	  "chalk": "^2.0.1",
-	  "discord.js": "^11.1.0",
-	  "erlpack": "hammerandchisel/erlpack",
-	  "libsodium-wrappers": "^0.5.2",
-	  "maki": "martindale/maki#0.3",
-	  "maki-client-level": "^0.1.0",
-	  "node-opus": "^0.2.6",
-	  "sodium": "^2.0.1",
+		"@slack/client": "^3.11.0",
+		"bufferutil": "^3.0.1",
+		"chalk": "^2.0.1",
+		"discord.js": "^11.1.0",
+		"erlpack": "hammerandchisel/erlpack",
+		"libsodium-wrappers": "^0.5.2",
+		"maki": "martindale/maki#0.3",
+		"maki-client-level": "^0.1.0",
+		"node-opus": "^0.2.6",
+		"sodium": "^2.0.1",
 		"youtube-dl": "^1.11.1",
 		"doorman-admin": "FabricLabs/doorman-admin",
 		"doorman-beer-lookup": "FabricLabs/doorman-beer-lookup",
@@ -50,6 +50,11 @@
 		"doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
 		"doorman-wikipedia": "FabricLabs/doorman-wikipedia",
 		"doorman-misc": "FabricLabs/doorman-misc"
+	},
+	"devDependencies": {
+		"coveralls": "^3.0.0",
+		"istanbul": "^0.4.5",
+		"mocha": "^4.0.0",
+		"semistandard": "^11.0.0"
 	}
 }
-  
