@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/martindale/doorman#readme",
   "dependencies": {
+    "electron": "^1.4.10",
     "maki": "martindale/maki#0.3",
     "maki-client-level": "^0.1.0"
   }
