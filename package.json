@@ -1,14 +1,15 @@
 {
   "name": "doorman",
-  "version": "0.1.0",
+  "version": "0.2.0-pre",
   "description": "simple community management",
   "main": "doorman.js",
   "scripts": {
-    "test": "mocha"
+    "test": "NODE_ENV=test mocha --recursive",
+    "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/martindale/doorman.git"
+    "url": "git+https://github.com/fabriclabs/doorman.git"
   },
   "keywords": [
     "maki",
@@ -18,14 +19,49 @@
     "slackin",
     "invitations"
   ],
-  "author": "Eric Martindale",
+  "author": "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
+  "contributors": [
+    "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
+    "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
+  ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/martindale/doorman/issues"
+    "url": "https://github.com/fabriclabs/doorman/issues"
   },
-  "homepage": "https://github.com/martindale/doorman#readme",
+  "homepage": "https://github.com/fabriclabs/doorman#readme",
   "dependencies": {
+    "@slack/client": "^3.11.0",
+    "bufferutil": "^3.0.1",
+    "chalk": "^2.0.1",
+    "discord.js": "^11.1.0",
+    "erlpack": "hammerandchisel/erlpack",
+    "libsodium-wrappers": "^0.5.2",
     "maki": "martindale/maki#0.3",
-    "maki-client-level": "^0.1.0"
+    "maki-client-level": "^0.1.0",
+    "node-opus": "^0.2.6",
+    "sodium": "^2.0.1",
+    "youtube-dl": "^1.11.1",
+    "doorman-admin": "FabricLabs/doorman-admin",
+    "doorman-beer-lookup": "FabricLabs/doorman-beer-lookup",
+    "doorman-cocktail-lookup": "FabricLabs/doorman-cocktail-lookup",
+    "doorman-dictionary": "FabricLabs/doorman-dictionary",
+    "doorman-xkcd": "FabricLabs/doorman-xkcd",
+    "doorman-translator": "FabricLabs/doorman-translator",
+    "doorman-dice": "FabricLabs/doorman-dice",
+    "doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
+    "doorman-wikipedia": "FabricLabs/doorman-wikipedia",
+    "doorman-misc": "FabricLabs/doorman-misc"
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "coveralls": "^3.0.0",
+    "istanbul": "^0.4.5",
+    "mocha": "^4.0.0",
+    "semistandard": "^11.0.0"
+  },
+  "semistandard": {
+    "ignore": [
+      "/test/"
+    ]
   }
 }
