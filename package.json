@@ -4,7 +4,8 @@
   "description": "simple community management",
   "main": "doorman.js",
   "scripts": {
-    "test": "semistandard && mocha"
+    "test": "semistandard &&NODE_ENV=test mocha --recursive",
+    "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive"
   },
   "repository": {
     "type": "git",
@@ -52,14 +53,15 @@
     "doorman-misc": "FabricLabs/doorman-misc"
   },
   "devDependencies": {
+    "chai": "^4.1.2",
     "coveralls": "^3.0.0",
     "istanbul": "^0.4.5",
     "mocha": "^4.0.0",
     "semistandard": "^11.0.0"
   },
-	"semistandard": {
-		"ignore": [
-			"/test/"
-		]
-	}
+  "semistandard": {
+    "ignore": [
+      "/test/"
+    ]
+  }
 }
