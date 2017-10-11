@@ -23,6 +23,13 @@ coverage
 # node-waf configuration
 .lock-wscript
 
+# VS Code Directory
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
 
@@ -32,6 +39,10 @@ jspm_packages
 
 # Optional npm cache directory
 .npm
+#other node stuffs
+package-lock.json
 
 # Optional REPL history
 .node_repl_history
+#config files
+config/*
