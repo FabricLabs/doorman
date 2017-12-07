@@ -1,6 +1,6 @@
 {
   "discord": {
-    "bot_token" : "bot token",
+    "bot_token" : "bot token"
   },
   "slack": {
     "bot_token": "bot token",

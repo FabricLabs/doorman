@@ -39,8 +39,8 @@ exports.resolveMention = function (usertxt) {
 };
 
 exports.Auth = require('./config/auth');
-exports.Config = require('./config/botConfig');
+exports.Config = require('./config/bot');
 
 // Now for the good stuff!
-require('./lib/doorMaki')(this);
-require('./lib/doorChat')(this);
+require('./lib/maki')(this);
+require('./lib/chat')(this);
