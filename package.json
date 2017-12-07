@@ -30,6 +30,7 @@
   },
   "homepage": "https://github.com/fabriclabs/doorman#readme",
   "dependencies": {
+    "electron": "^1.4.10",
     "@slack/client": "^3.11.0",
     "bufferutil": "^3.0.1",
     "chalk": "^2.0.1",
