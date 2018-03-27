@@ -4,45 +4,65 @@
 [![Coverage Status](https://img.shields.io/coveralls/fabriclabs/doorman.svg?style=flat-square)](https://coveralls.io/r/fabriclabs/doorman)
 [![Total Contributors](https://img.shields.io/github/contributors/fabriclabs/doorman.svg?style=flat-square)](https://github.com/fabriclabs/doorman/contributors)
 
-Doorman is a convenient community helper, automatically handling onboarding and
-providing useful functionality to groups of friends and collaborators.
+Doorman is a friendly, automated helper for managers of large online
+communities.  Simple to install and easy to configure, Doorman can welcome new
+users, guide them through onboarding flows, and help keep track of important
+projects and events.
 
-# Plugins
+## Quick Start
+1. Fork (optional) and clone:
+	`git clone https://github.com/FabricLabs/doorman.git`
+2. Run `npm install`
+3. Run `npm start`
 
+## Configuration
+Configuring Doorman will typically require the creation of a "bot" user on the
+platform of choice, and the use of a security token to authenticate requests.
+
+### Slack
+In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
+finally "New configuration".  Place the "API Token" into `config/auth.json`:
+
+```json
+{
+  "slack": {
+    "bot_token": "xoxb-0000000000000-somelongstring..."
+  }
+}
+```
+
+## Plugins
 Doorman is modular, and extending him is easy! We've included a few base features to help with your plugins, which we will describe below.
 
 Plugins for Doorman can add commands or other functionality. For example, the [doorman-beer-lookup](https://github.com/FabricLabs/doorman-beer-lookup) module adds the !brew command which returns information on breweries and specific brews!
 
-## Using Plugins
-
+### Using Plugins
 Plugins can be autoloaded from either a single file in `./modules/module-name.js` or an NPM module/Github repo named `doorman-module-name`.
 
 To autoload a plugin, add the plugin name to the `externalModules` (or the `modules` array under the appropriate api name for an api-specific module) array in `config/botConfig.json` (without the `doorman-`):
 
-```json
+```js
 {
-	...
+	// slice of larger JSON file
 	"externalModules": ["catfact", "misc", "wikipedia", "urbandictionary"]
 }
 ```
 
 and make sure to include any external plugins as dependencies in the `package.json` file:
 
-```json
+```js
 {
-  ...
+	// slice of larger JSON file
 	"dependencies": {
-        "doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
-        "doorman-wikipedia": "FabricLabs/doorman-wikipedia",
+		"doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
+		"doorman-wikipedia": "FabricLabs/doorman-wikipedia",
 		"doorman-misc": "FabricLabs/doorman-misc",
 		"doorman-catfact": "FabricLabs/doorman-catfact"
-		...
  	},
-  ...
 }
 ```
 
-## Official Plugins
+### Official Plugins
 List of external plugins for you to include with your installation (if you wish):
 
 - [xkcd](https://github.com/FabricLabs/doorman-xkcd) => adds the !xkcd command
@@ -69,8 +89,7 @@ List of external plugins for you to include with your installation (if you wish)
 - [datefact](https://github.com/FabricLabs/doorman-datefact) => spits out a random date fact
 - [remaeusfact](https://github.com/FabricLabs/doorman-remaeusfact) => spits out a random fact about [Remaeus](https://github.com/martindale)
 
-
-## Writing Plugin
+### Writing Plugin
 To write a Doorman plugin, create a new NPM module that exports an array named `commands` of triggers your bot will respond to. You can use a simple callback to display your message in both Slack and Discord, depending on the features you added:
 
 ```js
@@ -89,7 +108,7 @@ module.exports = (Doorman) => {
 
 If you think your plugin is amazing, please let us know! We'd love to add it to our list. Currently, the bot is configured to work with external repositories with the `doorman-` prefix.
 
-# Installation
+## Installation
 
 Written in Node.JS.
 
@@ -99,16 +118,16 @@ Written in Node.JS.
 
 For music playback (on Discord), you will need [ffmpeg](https://www.ffmpeg.org/download.html) installed and in your path variables.
 
-## Prereqs:
+### Prereqs:
 
-### On Unix
+#### On Unix
 
    * `python` (`v2.7` recommended, `v3.x.x` is __*not*__ supported)
    * `make`
    * A proper C/C++ compiler toolchain, like [GCC](https://gcc.gnu.org)
    * `npm install -g node-gyp`
 
-### On Mac OS X
+#### On Mac OS X
 
    * `python` (`v2.7` recommended, `v3.x.x` is __*not*__ supported) (already installed on Mac OS X)
    * [Xcode](https://developer.apple.com/xcode/download/)
@@ -116,13 +135,13 @@ For music playback (on Discord), you will need [ffmpeg](https://www.ffmpeg.org/d
      * This step will install `gcc` and the related toolchain containing `make`
    * `npm install -g node-gyp`
 
-### On Windows
+#### On Windows
 
-#### Option 1
+##### Option 1
 
 Install all the required tools and configurations using Microsoft's [windows-build-tools](https://github.com/felixrieseberg/windows-build-tools) using `npm install --global --production windows-build-tools` from an elevated PowerShell or CMD.exe (run as Administrator).
 
-#### Option 2
+##### Option 2
 
 Install tools and configuration manually:
    * Visual C++ Build Environment:
@@ -137,18 +156,18 @@ Install tools and configuration manually:
 
    If the above steps didn't work for you, please visit [Microsoft's Node.js Guidelines for Windows](https://github.com/Microsoft/nodejs-guidelines/blob/master/windows-environment.md#compiling-native-addon-modules) for additional tips.
 
-### Then, install node-gyp using `npm install -g node-gyp`
+Then, install node-gyp using `npm install -g node-gyp`
 
-## Customization
+### Customization
 The `/examples/` directory contains example files for the configs.! These files need to be renamed, without the .example extension, and placed in the `/config/` folder.
 
-# Running
+## Running
 Before first run you will need to create an `auth.json` file. A bot token is required for the bot to connect to the different services. The other credentials are not required for the bot to run, but highly recommended as commands that depend on them will malfunction. See `auth.json.example`.
 
 To start the bot just run
 `node start`.
 
-# Updates
+## Updates
 If you update the bot, please run `npm update` before starting it again. If you have
 issues with this, you can try deleting your node_modules folder and then running
 `npm install` again. Please see [Installation](#Installation).

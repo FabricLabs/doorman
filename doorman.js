@@ -1,3 +1,5 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
@@ -10,6 +12,7 @@ exports.require = function (filePath) {
   delete require.cache[path.join(path.dirname(require.main.filename), filePath)];
   return require(path.join(path.dirname(require.main.filename), filePath))(this);
 };
+
 exports.getFileContents = function (filePath) {
   try {
     return fs.readFileSync(path.join(path.dirname(require.main.filename), filePath), 'utf-8');
@@ -17,6 +20,7 @@ exports.getFileContents = function (filePath) {
     return '';
   }
 };
+
 exports.getFileArray = function (srcPath) {
   try {
     srcPath = path.join(path.dirname(require.main.filename), srcPath);
@@ -25,9 +29,11 @@ exports.getFileArray = function (srcPath) {
     return [];
   }
 };
+
 exports.getJsonObject = function (filePath) {
   return JSON.parse(exports.getFileContents(filePath));
 };
+
 exports.resolveMention = function (usertxt) {
   let userid = usertxt;
   if (usertxt.startsWith('<@!')) {
@@ -39,7 +45,7 @@ exports.resolveMention = function (usertxt) {
 };
 
 exports.Auth = require('./config/auth');
-exports.Config = require('./config/botConfig');
+exports.Config = require('./config');
 
 // Now for the good stuff!
 require('./lib/doorMaki')(this);
