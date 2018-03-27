@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fabriclabs/doorman.git"
+    "url": "git+https://github.com/FabricLabs/doorman.git"
   },
   "keywords": [
     "maki",
@@ -20,16 +20,16 @@
     "slackin",
     "invitations"
   ],
-  "author": "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
+  "author": "Fabric Labs <labs@fabric.pub> (https://labs.fabric.pub)",
   "contributors": [
     "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
     "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/fabriclabs/doorman/issues"
+    "url": "https://github.com/FabricLabs/doorman/issues"
   },
-  "homepage": "https://github.com/fabriclabs/doorman#readme",
+  "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
     "@slack/client": "^4.1.0",
     "bufferutil": "^3.0.1",
