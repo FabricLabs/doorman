@@ -44,9 +44,9 @@ exports.resolveMention = function (usertxt) {
   return userid;
 };
 
-exports.Auth = require('./config/auth');
-exports.Config = require('./config');
+exports.config = require('./config');
+exports.auth = require('./config/auth');
 
 // Now for the good stuff!
 require('./lib/maki')(this);
-require('./lib/chat')(this);
+require('./lib/doorman')(this);

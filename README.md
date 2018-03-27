@@ -12,14 +12,17 @@ projects and events.
 ## Quick Start
 1. Fork (optional) and clone:
 	`git clone https://github.com/FabricLabs/doorman.git`
-2. Run `npm install`
-3. Run `npm start`
+2. Run `cp config/index.json.example config/index.json` & edit to your liking
+2. Run `cp config/auth.json.example config/auth.json` & add your [auth tokens](#auth)
+3. Run `npm install`
+4. Run `npm start`
 
 ## Configuration
 Configuring Doorman will typically require the creation of a "bot" user on the
 platform of choice, and the use of a security token to authenticate requests.
 
-### Slack
+### Auth
+#### Slack
 In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
 finally "New configuration".  Place the "API Token" into `config/auth.json`:
 
@@ -31,24 +34,36 @@ finally "New configuration".  Place the "API Token" into `config/auth.json`:
 }
 ```
 
-## Plugins
-Doorman is modular, and extending him is easy! We've included a few base features to help with your plugins, which we will describe below.
+#### Discord
+@naterchrdsn will need to fill this out. :)
 
-Plugins for Doorman can add commands or other functionality. For example, the [doorman-beer-lookup](https://github.com/FabricLabs/doorman-beer-lookup) module adds the !brew command which returns information on breweries and specific brews!
+## Plugins
+Doorman is modular, and extending him is easy! We've included a few base
+features to help with your plugins, which we will describe below.
+
+Plugins for Doorman can add commands or other functionality. For example, the
+[doorman-beer-lookup](https://github.com/FabricLabs/doorman-beer-lookup) module
+adds the `!brew` command which returns information on breweries and specific
+brews!
 
 ### Using Plugins
-Plugins can be autoloaded from either a single file in `./modules/module-name.js` or an NPM module/Github repo named `doorman-module-name`.
+Plugins can be "autoloaded" from either a single file in
+`./modules/module-name.js` or an NPM module/GitHub repo named
+`doorman-module-name`.
 
-To autoload a plugin, add the plugin name to the `externalModules` (or the `modules` array under the appropriate api name for an api-specific module) array in `config/botConfig.json` (without the `doorman-`):
+To autoload a plugin, add the plugin name to the `plugins` (or the
+`modules` array under the appropriate API name for an API-specific module) array
+in `config/index.json` (without the `doorman-` prefix):
 
 ```js
 {
 	// slice of larger JSON file
-	"externalModules": ["catfact", "misc", "wikipedia", "urbandictionary"]
+	"plugins": ["catfacts", "misc", "wikipedia", "urbandictionary"]
 }
 ```
 
-and make sure to include any external plugins as dependencies in the `package.json` file:
+Make sure to include any external plugins as dependencies in the `package.json`
+file:
 
 ```js
 {
