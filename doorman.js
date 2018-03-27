@@ -48,5 +48,5 @@ exports.Auth = require('./config/auth');
 exports.Config = require('./config');
 
 // Now for the good stuff!
-require('./lib/doorMaki')(this);
-require('./lib/doorChat')(this);
+require('./lib/maki')(this);
+require('./lib/chat')(this);
