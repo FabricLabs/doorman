@@ -12,8 +12,7 @@ projects and events.
 ## Quick Start
 1. Fork (optional) and clone:
   `git clone https://github.com/FabricLabs/doorman.git`
-2. Run `cp config/index.json.example config/index.json` & edit to your liking
-2. Run `cp config/auth.json.example config/auth.json` & add your [auth tokens](#auth)
+2. Run `cp config/index.json.example config/index.json` & add your [auth tokens](#auth)
 3. Run `npm install`
 4. Run `npm start`
 
@@ -21,20 +20,19 @@ projects and events.
 Configuring Doorman will typically require the creation of a "bot" user on the
 platform of choice, and the use of a security token to authenticate requests.
 
-### Auth
-#### Slack
+### Slack
 In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
-finally "New configuration".  Place the "API Token" into `config/auth.json`:
+finally "New configuration".  Place the "API Token" into `config/index.json`:
 
 ```json
 {
   "slack": {
-    "bot_token": "xoxb-0000000000000-somelongstring..."
+    "token": "xoxb-0000000000000-somelongstring..."
   }
 }
 ```
 
-#### Discord
+### Discord
 @naterchrdsn will need to fill this out. :)
 
 ## Plugins

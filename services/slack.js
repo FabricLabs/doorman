@@ -15,7 +15,6 @@ util.inherits(Slack, Service);
 Slack.prototype.connect = function initialize () {
   if (this.config.token) {
     this.connection = new SlackSDK.RTMClient(this.config.token);
-    // TODO: this event is bound twice, please fix
     this.connection.on('ready', this.ready.bind(this));
     this.connection.on('message', this.handler.bind(this));
     this.connection.start();
