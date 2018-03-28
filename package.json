@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node doorman.js",
     "test": "NODE_ENV=test mocha --recursive",
-    "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive"
+    "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive",
+    "make:docs": "jsdoc doorman.js -d docs"
   },
   "repository": {
     "type": "git",
@@ -32,27 +33,7 @@
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
     "@slack/client": "^4.1.0",
-    "bufferutil": "^3.0.1",
-    "chalk": "^2.0.1",
-    "discord.js": "^11.1.0",
-    "doorman-admin": "FabricLabs/doorman-admin",
-    "doorman-beer-lookup": "FabricLabs/doorman-beer-lookup",
-    "doorman-catfact": "FabricLabs/doorman-catfact",
-    "doorman-cocktail-lookup": "FabricLabs/doorman-cocktail-lookup",
-    "doorman-dice": "FabricLabs/doorman-dice",
-    "doorman-dictionary": "FabricLabs/doorman-dictionary",
-    "doorman-misc": "FabricLabs/doorman-misc",
-    "doorman-translator": "FabricLabs/doorman-translator",
-    "doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
-    "doorman-wikipedia": "FabricLabs/doorman-wikipedia",
-    "doorman-xkcd": "FabricLabs/doorman-xkcd",
-    "erlpack": "hammerandchisel/erlpack",
-    "libsodium-wrappers": "^0.5.2",
-    "maki": "martindale/maki#0.3",
-    "maki-client-level": "^0.1.0",
-    "node-opus": "^0.2.6",
-    "sodium": "^2.0.1",
-    "youtube-dl": "^1.11.1"
+    "discord.js": "^11.1.0"
   },
   "devDependencies": {
     "chai": "^4.1.2",

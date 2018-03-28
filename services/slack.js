@@ -15,23 +15,35 @@ util.inherits(Slack, Service);
 Slack.prototype.connect = function initialize () {
   if (this.config.token) {
     this.connection = new SlackSDK.RTMClient(this.config.token);
-    this.connection.on('ready', this.ready);
+    // TODO: this event is bound twice, please fix
+    this.connection.on('ready', this.ready.bind(this));
     this.connection.on('message', this.handler.bind(this));
     this.connection.start();
   }
 };
 
-Slack.prototype.ready = function (data) {
-  console.log('le data:', data);
+Slack.prototype.ready = async function (data) {
+  let self = this;
+  let slack = new SlackSDK.WebClient(this.config.token);
+  let result = await slack.channels.list();
+
+  result.channels.forEach(channel => {
+    self.map[`/topics/${channel.name}`] = channel.id;
+  });
+
+  self.emit('ready');
 };
 
 Slack.prototype.handler = function route (message) {
-  this.emit('message', message.text);
+  this.emit('message', {
+    actor: message.user,
+    target: message.channel,
+    object: message.text
+  });
 };
 
 Slack.prototype.send = function send (channel, message) {
-  console.log('[SLACK]', 'send:', channel, message);
-  this.connection.sendMessage(message, this.map[channel]);
+  this.connection.sendMessage(message, channel);
 };
 
 module.exports = Slack;
