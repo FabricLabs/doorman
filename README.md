@@ -7,7 +7,7 @@
 Doorman is a friendly, automated helper for managers of large online
 communities.  Simple to install and easy to configure, Doorman can welcome new
 users, guide them through onboarding flows, and help keep track of important
-projects and events.
+projects and events using [a robust-plugin API](#plugins).
 
 ## Quick Start
 1. Fork (optional) and clone:
@@ -16,64 +16,25 @@ projects and events.
 3. Run `npm install`
 4. Run `npm start`
 
-## Configuration
-Configuring Doorman will typically require the creation of a "bot" user on the
-platform of choice, and the use of a security token to authenticate requests.
-
-### Slack
-In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
-finally "New configuration".  Place the "API Token" into `config/index.json`:
-
-```json
-{
-  "slack": {
-    "token": "xoxb-0000000000000-somelongstring..."
-  }
-}
-```
-
-### Discord
-@naterchrdsn will need to fill this out. :)
+## Services
+Doorman comes pre-configured with support for multiple chat platforms, including
+[Slack][slack], [Discord][discord], and [Matrix][matrix].  Adding support for
+additional services is easy — inspect the `lib/service.js` prototype for a list
+of required methods.  Feel free to submit a Pull Request to add support for your
+favorite services!
 
 ## Plugins
-Doorman is modular, and extending him is easy! We've included a few base
-features to help with your plugins, which we will describe below.
+Doorman behaviors range from simple triggers (commands prefixed with `!` _located
+anywhere within a message_) to complex applications which communicate
+through [a simple message-passing API](#message-passing).  The trigger prefix
+is configurable using the `trigger` keyword in the configuration file.
 
-Plugins for Doorman can add commands or other functionality. For example, the
-[doorman-beer-lookup](https://github.com/FabricLabs/doorman-beer-lookup) module
-adds the `!brew` command which returns information on breweries and specific
-brews!
-
-### Using Plugins
-Plugins can be "autoloaded" from either a single file in
-`./modules/module-name.js` or an NPM module/GitHub repo named
-`doorman-module-name`.
-
-To autoload a plugin, add the plugin name to the `plugins` (or the
-`modules` array under the appropriate API name for an API-specific module) array
-in `config/index.json` (without the `doorman-` prefix):
-
-```js
-{
-  // slice of larger JSON file
-  "plugins": ["catfacts", "misc", "wikipedia", "urbandictionary"]
-}
-```
-
-Make sure to include any external plugins as dependencies in the `package.json`
-file:
-
-```js
-{
-  // slice of larger JSON file
-  "dependencies": {
-    "doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
-    "doorman-wikipedia": "FabricLabs/doorman-wikipedia",
-    "doorman-misc": "FabricLabs/doorman-misc",
-    "doorman-catfact": "FabricLabs/doorman-catfact"
-  },
-}
-```
+Plugins are **automatically** loaded when included in `config/index.json`, under
+the `"plugins"` section, or **manually** by calling `doorman.use()`.  Doorman
+will look first in the `./plugins` folder for the named plugin (most useful for
+simple prototyping), then will attempt to load from NPM using the `doorman-*`
+naming pattern.  Plugins may be published to the NPM registry and installed via
+`npm install` as usual.
 
 ### Official Plugins
 List of external plugins for you to include with your installation (if you wish):
@@ -102,31 +63,114 @@ List of external plugins for you to include with your installation (if you wish)
 - [datefact](https://github.com/FabricLabs/doorman-datefact) => spits out a random date fact
 - [remaeusfact](https://github.com/FabricLabs/doorman-remaeusfact) => spits out a random fact about [Remaeus](https://github.com/martindale)
 
-### Writing Plugins
-To write a Doorman plugin, create a new NPM module that exports an array named `commands` of triggers your bot will respond to. You can use a simple callback to display your message in both Slack and Discord, depending on the features you added:
-
-```js
-module.exports = (Doorman) => {
-  return {
-    commands: [
-      'hello'
-    ],
-    hello: {
-      description: 'responds with hello!',
-      process: (msg, suffix, isEdit, cb) => { cb('hello!', msg); }
-    }
-  };
-};
+### Simple Plugins
+#### Ping-Pong Example Plugin, `./plugins/ping.json`
+```json
+{
+  "ping": "Pong!"
+}
 ```
 
-If you think your plugin is amazing, please let us know! We'd love to add it to our list. Currently, the bot is configured to work with external repositories with the `doorman-` prefix.
+To use this plugin, add `ping` to your configuration file and Doorman will
+respond to any messages that include `!ping` with a simple `Pong!` response.
 
-## Running
-Before first run you will need to create an `auth.json` file. A bot token is required for the bot to connect to the different services. The other credentials are not required for the bot to run, but highly recommended as commands that depend on them will malfunction. See `auth.json.example`.
+### Complex Plugins
+In addition to simple `!triggers`, Doorman can call functions to compute
+responses, or even instantiate external applications for managing long-running
+processes.
 
-To start the bot, just run `npm start`.
+#### Function Call Example Plugin, `./plugins/erm.js`
+```js
+const erm = require('erm');
+const plugin = {
+  erm: function (msg) {
+    return erm(msg);
+  }
+};
 
-## Updates
-If you update the bot, please run `npm update` before starting it again. If you have
-issues with this, you can try deleting your node_modules folder and then running
-`npm install` again.
+module.exports = plugin;
+```
+
+#### Instantiated Example Plugin
+```js
+function MyPlugin (config) {
+  // config will be passed from `./config/index.json` based on the plugin name
+  this.start();
+}
+
+MyPlugin.prototype.start = function () {
+  console.log('Hello, world!');
+};
+
+module.exports = MyPlugin;
+```
+
+### Manually Loading Plugins
+To load the plugin, simply call `doorman.use()` on the plugin you wish to add.
+Multiple `!triggers` can be added, each as `key => value` mappings provided by
+the plugin.
+
+```js
+const config = require('./config');
+const plugin = { fancy: 'Mmm, fancy!' };
+
+const Doorman = require('doorman');
+const doorman = new Doorman(config);
+
+doorman.use(plugin);
+doorman.start();
+```
+
+## Message Passing API
+Doorman emits events like any other `EventEmitter`, using a simple router for
+distinguishing between messages, users, and channels on various services.  This
+allows Doorman to stay connected to multiple networks simultaneously — a feature
+we rely on in [our flagship project, Fabric](https://fabric.pub)!
+
+### General Message Format
+#### Identifiers
+Doorman uses [the Fabric Messaging Format](https://docs.fabric.pub/messages) to
+uniquely identify objects within the system.  Each object has an `id` field,
+which usually takes the following format:
+
+`:service/:collection/:identifier`
+
+For example, a `user` event might emit the following object:
+
+```json
+{
+  "id": "slack/users/U09HF4JLV",
+  "@data": {
+    "id": "U09HF4JLV"
+  }
+}
+```
+
+### Users (the `user` event)
+### Channels (the `channel` event)
+### Messages (the `message` event)
+### State Management (the `patch` event)
+
+
+## Configuration
+Configuring Doorman will typically require the creation of a "bot" user on the
+platform of choice, and the use of a security token to authenticate requests.
+
+### Slack
+In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
+finally "New configuration".  Place the "API Token" into `config/index.json`:
+
+```json
+{
+  "slack": {
+    "token": "xoxb-0000000000000-somelongstring..."
+  }
+}
+```
+
+### Discord
+@naterchrdsn will need to fill this out. :)
+
+[slack]: https://slack.com
+[discord]: https://discordapp.com
+[matrix]: https://matrix.org
