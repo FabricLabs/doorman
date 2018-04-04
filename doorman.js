@@ -1,7 +1,5 @@
 'use strict';
 
-require('debug-trace')({ always: true });
-
 const config = require('./config');
 const Doorman = require('./lib/doorman');
 

@@ -37,7 +37,7 @@ Slack.prototype.ready = async function (data) {
 
   for (let id in users) {
     self._registerUser(users[id]);
-    //self._getPresence(users[id].id);
+    self._getPresence(users[id].id);
   }
 
   for (let id in channels) {

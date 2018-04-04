@@ -2,31 +2,35 @@ const assert = require('assert');
 const expect = require('chai').expect;
 
 const Doorman = require('../lib/doorman');
+const Service = require('../lib/service');
+
+const EventEmitter = require('events').EventEmitter;
 
 describe('Doorman', function () {
   it('should expose a constructor', function () {
-    assert(typeof Doorman, 'function');
+    assert(Doorman instanceof Function);
   });
 
   it('can handle a message', function (done) {
-    let doorman = new Doorman({
-      triggers: {
-        'debug': 'This is a debug response.'
-      }
+    let doorman = new Doorman();
+    let source = new EventEmitter();
+
+    doorman.use({
+      'test': 'Successfully handled!'
     });
 
-    doorman.on('input', function (data) {
-      assert.ok(data);
+    doorman.on('response', function (message) {
+      console.log('test received:', message);
       done();
     });
 
     doorman.start();
-    doorman.parse('Hello, world.  This is a !debug trigger!');
-  });
 
-  it('can initialize a connection', function (done) {
-    let doorman = new Doorman();
-    doorman.on('ready', done);
-    doorman.start();
+    doorman.services.local.emit('message', {
+      id: 'test',
+      actor: 'Alice',
+      target: 'test',
+      object: 'Hello, world!  This is a !test of the message handling flow.'
+    });
   });
 });
