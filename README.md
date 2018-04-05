@@ -4,45 +4,39 @@
 [![Coverage Status](https://img.shields.io/coveralls/fabriclabs/doorman.svg?style=flat-square)](https://coveralls.io/r/fabriclabs/doorman)
 [![Total Contributors](https://img.shields.io/github/contributors/fabriclabs/doorman.svg?style=flat-square)](https://github.com/fabriclabs/doorman/contributors)
 
-Doorman is a convenient community helper, automatically handling onboarding and
-providing useful functionality to groups of friends and collaborators.
+Doorman is a friendly, automated helper for managers of large online
+communities.  Simple to install and easy to configure, Doorman can welcome new
+users, guide them through onboarding flows, and help keep track of important
+projects and events using [a robust-plugin API](#plugins).
 
-# Plugins
+## Quick Start
+1. Fork (optional) and clone:
+  `git clone https://github.com/FabricLabs/doorman.git`
+2. Run `cp config/index.json.example config/index.json` & add your [auth tokens](#auth)
+3. Run `npm install`
+4. Run `npm start`
 
-Doorman is modular, and extending him is easy! We've included a few base features to help with your plugins, which we will describe below.
+## Services
+Doorman comes pre-configured with support for multiple chat platforms, including
+[Slack][slack], [Discord][discord], and [Matrix][matrix].  Adding support for
+additional services is easy — inspect the `lib/service.js` prototype for a list
+of required methods.  Feel free to submit a Pull Request to add support for your
+favorite services!
 
-Plugins for Doorman can add commands or other functionality. For example, the [doorman-beer-lookup](https://github.com/FabricLabs/doorman-beer-lookup) module adds the !brew command which returns information on breweries and specific brews!
+## Plugins
+Doorman behaviors range from simple triggers (commands prefixed with `!` _located
+anywhere within a message_) to complex applications which communicate
+through [a simple message-passing API](#message-passing).  The trigger prefix
+is configurable using the `trigger` keyword in the configuration file.
 
-## Using Plugins
+Plugins are **automatically** loaded when included in `config/index.json`, under
+the `"plugins"` section, or **manually** by calling `doorman.use()`.  Doorman
+will look first in the `./plugins` folder for the named plugin (most useful for
+simple prototyping), then will attempt to load from NPM using the `doorman-*`
+naming pattern.  Plugins may be published to the NPM registry and installed via
+`npm install` as usual.
 
-Plugins can be autoloaded from either a single file in `./modules/module-name.js` or an NPM module/Github repo named `doorman-module-name`.
-
-To autoload a plugin, add the plugin name to the `externalModules` (or the `modules` array under the appropriate api name for an api-specific module) array in `config/botConfig.json` (without the `doorman-`):
-
-```json
-{
-	...
-	"externalModules": ["catfact", "misc", "wikipedia", "urbandictionary"]
-}
-```
-
-and make sure to include any external plugins as dependencies in the `package.json` file:
-
-```json
-{
-  ...
-	"dependencies": {
-        "doorman-urbandictionary": "FabricLabs/doorman-urbandictionary",
-        "doorman-wikipedia": "FabricLabs/doorman-wikipedia",
-		"doorman-misc": "FabricLabs/doorman-misc",
-		"doorman-catfact": "FabricLabs/doorman-catfact"
-		...
- 	},
-  ...
-}
-```
-
-## Official Plugins
+### Official Plugins
 List of external plugins for you to include with your installation (if you wish):
 
 - [xkcd](https://github.com/FabricLabs/doorman-xkcd) => adds the !xkcd command
@@ -69,86 +63,114 @@ List of external plugins for you to include with your installation (if you wish)
 - [datefact](https://github.com/FabricLabs/doorman-datefact) => spits out a random date fact
 - [remaeusfact](https://github.com/FabricLabs/doorman-remaeusfact) => spits out a random fact about [Remaeus](https://github.com/martindale)
 
-
-## Writing Plugin
-To write a Doorman plugin, create a new NPM module that exports an array named `commands` of triggers your bot will respond to. You can use a simple callback to display your message in both Slack and Discord, depending on the features you added:
-
-```js
-module.exports = (Doorman) => {
-	return {
-		commands: [
-			'hello'
-		],
-		hello: {
-			description: 'responds with hello!',
-			process: (msg, suffix, isEdit, cb) => { cb('hello!', msg); }
-		}
-	};
-};
+### Simple Plugins
+#### Ping-Pong Example Plugin, `./plugins/ping.json`
+```json
+{
+  "ping": "Pong!"
+}
 ```
 
-If you think your plugin is amazing, please let us know! We'd love to add it to our list. Currently, the bot is configured to work with external repositories with the `doorman-` prefix.
+To use this plugin, add `ping` to your configuration file and Doorman will
+respond to any messages that include `!ping` with a simple `Pong!` response.
 
-# Installation
+### Complex Plugins
+In addition to simple `!triggers`, Doorman can call functions to compute
+responses, or even instantiate external applications for managing long-running
+processes.
 
-Written in Node.JS.
+#### Function Call Example Plugin, `./plugins/erm.js`
+```js
+const erm = require('erm');
+const plugin = {
+  erm: function (msg) {
+    return erm(msg);
+  }
+};
 
-0. Install prereqs, see below for your OS.
-1. Clone the repo.
-2. Run `npm install` in the repo directory.
+module.exports = plugin;
+```
 
-For music playback (on Discord), you will need [ffmpeg](https://www.ffmpeg.org/download.html) installed and in your path variables.
+#### Instantiated Example Plugin
+```js
+function MyPlugin (config) {
+  // config will be passed from `./config/index.json` based on the plugin name
+  this.start();
+}
 
-## Prereqs:
+MyPlugin.prototype.start = function () {
+  console.log('Hello, world!');
+};
 
-### On Unix
+module.exports = MyPlugin;
+```
 
-   * `python` (`v2.7` recommended, `v3.x.x` is __*not*__ supported)
-   * `make`
-   * A proper C/C++ compiler toolchain, like [GCC](https://gcc.gnu.org)
-   * `npm install -g node-gyp`
+### Manually Loading Plugins
+To load the plugin, simply call `doorman.use()` on the plugin you wish to add.
+Multiple `!triggers` can be added, each as `key => value` mappings provided by
+the plugin.
 
-### On Mac OS X
+```js
+const config = require('./config');
+const plugin = { fancy: 'Mmm, fancy!' };
 
-   * `python` (`v2.7` recommended, `v3.x.x` is __*not*__ supported) (already installed on Mac OS X)
-   * [Xcode](https://developer.apple.com/xcode/download/)
-     * You also need to install the `Command Line Tools` via Xcode. You can find this under the menu `Xcode -> Preferences -> Downloads`
-     * This step will install `gcc` and the related toolchain containing `make`
-   * `npm install -g node-gyp`
+const Doorman = require('doorman');
+const doorman = new Doorman(config);
 
-### On Windows
+doorman.use(plugin);
+doorman.start();
+```
 
-#### Option 1
+## Message Passing API
+Doorman emits events like any other `EventEmitter`, using a simple router for
+distinguishing between messages, users, and channels on various services.  This
+allows Doorman to stay connected to multiple networks simultaneously — a feature
+we rely on in [our flagship project, Fabric](https://fabric.pub)!
 
-Install all the required tools and configurations using Microsoft's [windows-build-tools](https://github.com/felixrieseberg/windows-build-tools) using `npm install --global --production windows-build-tools` from an elevated PowerShell or CMD.exe (run as Administrator).
+### General Message Format
+#### Identifiers
+Doorman uses [the Fabric Messaging Format](https://docs.fabric.pub/messages) to
+uniquely identify objects within the system.  Each object has an `id` field,
+which usually takes the following format:
 
-#### Option 2
+`:service/:collection/:identifier`
 
-Install tools and configuration manually:
-   * Visual C++ Build Environment:
-     * Option 1: Install [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools) using the **Default Install** option.
+For example, a `user` event might emit the following object:
 
-     * Option 2: Install [Visual Studio 2015](https://www.visualstudio.com/products/visual-studio-community-vs) (or modify an existing installation) and select *Common Tools for Visual C++* during setup. This also works with the free Community and Express for Desktop editions.
+```json
+{
+  "id": "slack/users/U09HF4JLV",
+  "@data": {
+    "id": "U09HF4JLV"
+  }
+}
+```
 
-     > :bulb: [Windows Vista / 7 only] requires [.NET Framework 4.5.1](http://www.microsoft.com/en-us/download/details.aspx?id=40773)
+### Users (the `user` event)
+### Channels (the `channel` event)
+### Messages (the `message` event)
+### State Management (the `patch` event)
 
-   * Install [Python 2.7](https://www.python.org/downloads/) (`v3.x.x` is not supported), and run `npm config set python python2.7` (or see below for further instructions on specifying the proper Python version and path.)
-   * Launch cmd, `npm config set msvs_version 2015`
 
-   If the above steps didn't work for you, please visit [Microsoft's Node.js Guidelines for Windows](https://github.com/Microsoft/nodejs-guidelines/blob/master/windows-environment.md#compiling-native-addon-modules) for additional tips.
+## Configuration
+Configuring Doorman will typically require the creation of a "bot" user on the
+platform of choice, and the use of a security token to authenticate requests.
 
-### Then, install node-gyp using `npm install -g node-gyp`
+### Slack
+In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
+finally "New configuration".  Place the "API Token" into `config/index.json`:
 
-## Customization
-The `/examples/` directory contains example files for the configs.! These files need to be renamed, without the .example extension, and placed in the `/config/` folder.
+```json
+{
+  "slack": {
+    "token": "xoxb-0000000000000-somelongstring..."
+  }
+}
+```
 
-# Running
-Before first run you will need to create an `auth.json` file. A bot token is required for the bot to connect to the different services. The other credentials are not required for the bot to run, but highly recommended as commands that depend on them will malfunction. See `auth.json.example`.
+### Discord
+@naterchrdsn will need to fill this out. :)
 
-To start the bot just run
-`node start`.
-
-# Updates
-If you update the bot, please run `npm update` before starting it again. If you have
-issues with this, you can try deleting your node_modules folder and then running
-`npm install` again. Please see [Installation](#Installation).
+[slack]: https://slack.com
+[discord]: https://discordapp.com
+[matrix]: https://matrix.org
