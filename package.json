@@ -2,7 +2,7 @@
   "name": "doorman",
   "version": "0.2.0-pre",
   "description": "simple community management",
-  "main": "doorman.js",
+  "main": "lib/doorman.js",
   "scripts": {
     "start": "node doorman.js",
     "test": "NODE_ENV=test mocha --recursive",
