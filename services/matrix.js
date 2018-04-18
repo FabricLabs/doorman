@@ -2,6 +2,7 @@
 
 const util = require('util');
 const matrix = require('matrix-js-sdk');
+const markdown = require('marked');
 const Service = require('../lib/service');
 
 function Matrix (config) {
@@ -38,7 +39,7 @@ Matrix.prototype.ready = async function () {
 
   this.connection.on('event', this.handler.bind(this));
   this.connection.on('Room.timeline', function (event, room) {
-    console.log('shenanigans!', event, room);
+    //- console.log('shenanigans!', event, room);
   });
   this.connection.on('RoomMember.membership', function (event, member) {
     if (member.membership === 'invite' && member.userId === self.config.user) {
@@ -99,10 +100,9 @@ Matrix.prototype.handler = function route (message) {
 };
 
 Matrix.prototype.send = function send (channel, message) {
-  this.connection.sendMessage(channel, {
-    msgtype: 'text',
-    body: message
-  });
+  let html = markdown(message);
+  // TODO: complain to `matrix-js-sdk` about duplicate params
+  this.connection.sendHtmlMessage(channel, html, html);
 };
 
 Matrix.prototype._getChannels = async function getChannels () {
@@ -127,11 +127,26 @@ Matrix.prototype._getPresences = async function getPresences () {
   return result;
 };
 
+Matrix.prototype._getMembers = async function getMembers(id) {
+  let room = this.connection.getRoom(id);
+  return Object.keys(room.currentState.members);
+};
+
 Matrix.prototype._registerChannel = function registerChannel (channel) {
   if (!channel.id) return console.error('Channel must have an id.');
   let id = `/channels/${channel.id}`;
   this.map[id] = Object.assign({}, this.map[id], channel);
   this.emit('channel', this.map[id]);
+};
+
+Matrix.prototype._registerUser = function registerUser (user) {
+  if (!user.id) return console.error('User must have an id.');
+  let id = `/users/${user.id}`;
+  this.map[id] = Object.assign({
+    online: user.currentlyActive || false,
+    name: user.displayName || user.id
+  }, this.map[id], user);
+  this.emit('user', this.map[id]);
 };
 
 Matrix.prototype._presence_change = function handlePresence (message) {
