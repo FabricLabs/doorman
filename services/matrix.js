@@ -110,6 +110,11 @@ Matrix.prototype._getChannels = async function getChannels () {
     room.id = room.roomId;
     return room;
   });
+
+  for (let i in result) {
+    await this._registerChannel(result[i]);
+  }
+
   return result;
 };
 
@@ -118,6 +123,11 @@ Matrix.prototype._getUsers = async function getUsers () {
     user.id = user.userId;
     return user;
   });
+
+  for (let i in result) {
+    await this._registerUser(result[i]);
+  }
+
   return result;
 };
 
@@ -128,7 +138,10 @@ Matrix.prototype._getPresences = async function getPresences () {
 };
 
 Matrix.prototype._getMembers = async function getMembers(id) {
-  let room = this.connection.getRoom(id);
+  let room = await this.connection.getRoom(id);
+  for (let i in room.currentState.members) {
+    await this._registerUser(room.currentState.members[i]);
+  }
   return Object.keys(room.currentState.members);
 };
 
@@ -164,6 +177,14 @@ Matrix.prototype._presence_change = function handlePresence (message) {
     op: 'replace',
     path: [id, 'online'].join('/'),
     value: this.map[id].online
+  });
+};
+
+Matrix.prototype._member_joined_channel = function handleJoin (message) {
+  if (message.event.content.membership !== 'join') return;
+  this.emit('join', {
+    user: message.sender.userId,
+    channel: message.target.roomId
   });
 };
 
