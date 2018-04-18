@@ -183,7 +183,7 @@ Matrix.prototype._presence_change = function handlePresence (message) {
 Matrix.prototype._member_joined_channel = function handleJoin (message) {
   if (message.event.content.membership !== 'join') return;
   this.emit('join', {
-    user: message.sender.userId,
+    user: message.event.sender,
     channel: message.target.roomId
   });
 };
