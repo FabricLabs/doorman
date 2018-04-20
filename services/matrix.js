@@ -131,6 +131,14 @@ Matrix.prototype._getUsers = async function getUsers () {
   return result;
 };
 
+Matrix.prototype._getUser = async function getUser (id) {
+  let result = await this.connection.getUser(id);
+  let user = Object.assign({
+    id: result.userId
+  }, result);
+  return user;
+};
+
 Matrix.prototype._getPresences = async function getPresences () {
   let result = await this.connection.getPresenceList();
   console.log('getPresences() got:', result);
@@ -140,7 +148,10 @@ Matrix.prototype._getPresences = async function getPresences () {
 Matrix.prototype._getMembers = async function getMembers(id) {
   let room = await this.connection.getRoom(id);
   for (let i in room.currentState.members) {
-    await this._registerUser(room.currentState.members[i]);
+    let member = Object.assign({
+      id: i
+    }, room.currentState.members[i]);
+    await this._registerUser(member);
   }
   return Object.keys(room.currentState.members);
 };
@@ -163,10 +174,7 @@ Matrix.prototype._registerUser = function registerUser (user) {
 };
 
 Matrix.prototype._presence_change = function handlePresence (message) {
-  console.log('presence change:', message);
-  
   let id = `/users/${message.event.sender}`;
-
   if (!this.map[id]) this._registerUser({ id: message.event.sender });
 
   this.map[id].online = (message.event.content.presence === 'online');
@@ -184,7 +192,7 @@ Matrix.prototype._member_joined_channel = function handleJoin (message) {
   if (message.event.content.membership !== 'join') return;
   this.emit('join', {
     user: message.event.sender,
-    channel: message.target.roomId
+    channel: message.event.room_id
   });
 };
 

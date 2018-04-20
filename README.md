@@ -61,7 +61,7 @@ List of external plugins for you to include with your installation (if you wish)
 - [mathfact](https://github.com/FabricLabs/doorman-mathfact) => spits out a random math fact
 - [yearfact](https://github.com/FabricLabs/doorman-yearfact) => spits out a random year fact
 - [datefact](https://github.com/FabricLabs/doorman-datefact) => spits out a random date fact
-- [remaeusfact](https://github.com/FabricLabs/doorman-remaeusfact) => spits out a random fact about [Remaeus](https://github.com/martindale)
+- [remaeusfact](https://github.com/FabricLabs/doorman-remaeusfact) => spits out a random fact about [Remaeus](https://www.roleplaygateway.com/member/Rem%C3%A6us/)
 
 ### Simple Plugins
 #### Ping-Pong Example Plugin, `./plugins/ping.json`
