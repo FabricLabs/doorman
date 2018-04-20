@@ -48,6 +48,12 @@ Slack.prototype.ready = async function (data) {
 };
 
 Slack.prototype.handler = function route (message) {
+  let user = this.map[`/users/${message.user}`];
+
+  if (!user) return console.error('[SERVICE:SLACK]', `received message, but user did not exist in map: ${JSON.stringify(message)}`);
+  if (!message.user) return console.error('[SERVICE:SLACK]', `received message, but no user: ${JSON.stringify(message)}`);
+  if (user.is_bot) return;
+  if (message.subtype === 'bot_message') return;
   this.emit('message', {
     actor: message.user,
     target: message.channel,
@@ -74,6 +80,10 @@ Slack.prototype._getUsers = async function getUsers () {
   return result.members;
 };
 
+Slack.prototype._getSubscriptions = async function getSubscriptions (id) {
+  return this._getChannelMembers(id);
+};
+
 Slack.prototype._getPresence = async function getPresence (id) {
   let path = `/users/${id}`;
   this.map[path].presence = (await this.slack.users.getPresence({
@@ -94,7 +104,7 @@ Slack.prototype._registerUser = function registerUser (user) {
   if (!user.id) return console.error('User must have an id.');
   let id = `/users/${user.id}`;
   this.map[id] = Object.assign({
-    channels: []
+    subscriptions: []
   }, this.map[id], user);
   this.emit('user', this.map[id]);
   this.connection.subscribePresence([id]);
@@ -117,8 +127,13 @@ Slack.prototype._channel_created = function handleChannel (event) {
 
 Slack.prototype._presence_change = function handlePresence (event) {
   let id = `/users/${event.user}`;
-  this._registerUser({ id: event.user });
+
+  if (!this.map[id]) this._registerUser({ id: event.user });
+
   this.map[id].online = (event.presence === 'active');
+  this.map[id].presence = event.presence;
+
+  // TODO: generate this from Fabric
   this.emit('patch', {
     op: 'replace',
     path: [id, 'online'].join('/'),
@@ -128,9 +143,17 @@ Slack.prototype._presence_change = function handlePresence (event) {
 
 Slack.prototype._member_joined_channel = function handleJoin (event) {
   let id = `/users/${event.user}`;
+  let channelID = `/channels/${event.channel}`;
+
   this.emit('patch', {
     op: 'add',
-    path: [id, 'channels', 0].join('/'),
+    path: [id, 'subscriptions', 0].join('/'),
+    value: event.channel
+  });
+
+  this.emit('patch', {
+    op: 'add',
+    path: [channelID, 'members', 0].join('/'),
     value: event.channel
   });
 

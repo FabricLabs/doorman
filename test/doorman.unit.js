@@ -14,13 +14,13 @@ describe('Doorman', function () {
   it('can handle a message', function (done) {
     let doorman = new Doorman();
     let source = new EventEmitter();
+    let sample = { 'test': 'Successfully handled!' };
 
-    doorman.use({
-      'test': 'Successfully handled!'
-    });
+    doorman.use(sample);
 
     doorman.on('response', function (message) {
-      console.log('test received:', message);
+      assert.equal(message.parent, 'local/messages/test');
+      assert.equal(message.response, sample.test);
       done();
     });
 
