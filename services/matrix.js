@@ -102,7 +102,7 @@ Matrix.prototype.handler = function route (message) {
 Matrix.prototype.send = function send (channel, message) {
   let html = markdown(message);
   // TODO: complain to `matrix-js-sdk` about duplicate params
-  this.connection.sendHtmlMessage(channel, html, html);
+  this.connection.sendHtmlMessage(channel, message, html);
 };
 
 Matrix.prototype._getChannels = async function getChannels () {
@@ -145,7 +145,7 @@ Matrix.prototype._getPresences = async function getPresences () {
   return result;
 };
 
-Matrix.prototype._getMembers = async function getMembers(id) {
+Matrix.prototype._getMembers = async function getMembers (id) {
   let room = await this.connection.getRoom(id);
   for (let i in room.currentState.members) {
     let member = Object.assign({
@@ -176,16 +176,8 @@ Matrix.prototype._registerUser = function registerUser (user) {
 Matrix.prototype._presence_change = function handlePresence (message) {
   let id = `/users/${message.event.sender}`;
   if (!this.map[id]) this._registerUser({ id: message.event.sender });
-
   this.map[id].online = (message.event.content.presence === 'online');
   this.map[id].presence = message.event.content.presence;
-
-  // TODO: generate this from Fabric
-  this.emit('patch', {
-    op: 'replace',
-    path: [id, 'online'].join('/'),
-    value: this.map[id].online
-  });
 };
 
 Matrix.prototype._member_joined_channel = function handleJoin (message) {
