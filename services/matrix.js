@@ -34,19 +34,6 @@ Matrix.prototype.connect = function initialize () {
 
 Matrix.prototype.ready = async function () {
   let self = this;
-
-  console.log('[MATRIX]', 'ready!');
-
-  this.connection.on('event', this.handler.bind(this));
-  this.connection.on('Room.timeline', function (event, room) {
-    //- console.log('shenanigans!', event, room);
-  });
-  this.connection.on('RoomMember.membership', function (event, member) {
-    if (member.membership === 'invite' && member.userId === self.config.user) {
-      self.connection.joinRoom(member.roomId);
-    }
-  });
-
   let users = await self._getUsers();
   let channels = await self._getChannels();
   let presences = await self._getPresences();
@@ -59,12 +46,19 @@ Matrix.prototype.ready = async function () {
     self._registerChannel(channels[id]);
   }
 
+  console.log('[MATRIX]', 'ready!');
+
+  this.connection.on('event', this.handler.bind(this));
+  this.connection.on('RoomMember.membership', function (event, member, old) {
+    if (member.membership === 'invite' && member.userId === self.config.user) {
+      self.connection.joinRoom(member.roomId);
+    }
+  });
+
   self.emit('ready');
 };
 
 Matrix.prototype.sync = function handleSync (state, previous, data) {
-  console.log('[MATRIX]', 'sync received:', state, previous, data);
-
   switch (state) {
     case 'PREPARED':
       this.ready();
@@ -134,7 +128,8 @@ Matrix.prototype._getUsers = async function getUsers () {
 Matrix.prototype._getUser = async function getUser (id) {
   let result = await this.connection.getUser(id);
   let user = Object.assign({
-    id: result.userId
+    id: result.userId,
+    name: result.displayName
   }, result);
   return user;
 };
