@@ -34,19 +34,6 @@ Matrix.prototype.connect = function initialize () {
 
 Matrix.prototype.ready = async function () {
   let self = this;
-
-  console.log('[MATRIX]', 'ready!');
-
-  this.connection.on('event', this.handler.bind(this));
-  this.connection.on('Room.timeline', function (event, room) {
-    //- console.log('shenanigans!', event, room);
-  });
-  this.connection.on('RoomMember.membership', function (event, member) {
-    if (member.membership === 'invite' && member.userId === self.config.user) {
-      self.connection.joinRoom(member.roomId);
-    }
-  });
-
   let users = await self._getUsers();
   let channels = await self._getChannels();
   let presences = await self._getPresences();
@@ -59,12 +46,19 @@ Matrix.prototype.ready = async function () {
     self._registerChannel(channels[id]);
   }
 
+  console.log('[MATRIX]', 'ready!');
+
+  this.connection.on('event', this.handler.bind(this));
+  this.connection.on('RoomMember.membership', function (event, member, old) {
+    if (member.membership === 'invite' && member.userId === self.config.user) {
+      self.connection.joinRoom(member.roomId);
+    }
+  });
+
   self.emit('ready');
 };
 
 Matrix.prototype.sync = function handleSync (state, previous, data) {
-  console.log('[MATRIX]', 'sync received:', state, previous, data);
-
   switch (state) {
     case 'PREPARED':
       this.ready();
@@ -102,7 +96,7 @@ Matrix.prototype.handler = function route (message) {
 Matrix.prototype.send = function send (channel, message) {
   let html = markdown(message);
   // TODO: complain to `matrix-js-sdk` about duplicate params
-  this.connection.sendHtmlMessage(channel, html, html);
+  this.connection.sendHtmlMessage(channel, message, html);
 };
 
 Matrix.prototype._getChannels = async function getChannels () {
@@ -131,16 +125,28 @@ Matrix.prototype._getUsers = async function getUsers () {
   return result;
 };
 
+Matrix.prototype._getUser = async function getUser (id) {
+  let result = await this.connection.getUser(id);
+  let user = Object.assign({
+    id: result.userId,
+    name: result.displayName
+  }, result);
+  return user;
+};
+
 Matrix.prototype._getPresences = async function getPresences () {
   let result = await this.connection.getPresenceList();
   console.log('getPresences() got:', result);
   return result;
 };
 
-Matrix.prototype._getMembers = async function getMembers(id) {
+Matrix.prototype._getMembers = async function getMembers (id) {
   let room = await this.connection.getRoom(id);
   for (let i in room.currentState.members) {
-    await this._registerUser(room.currentState.members[i]);
+    let member = Object.assign({
+      id: i
+    }, room.currentState.members[i]);
+    await this._registerUser(member);
   }
   return Object.keys(room.currentState.members);
 };
@@ -163,28 +169,17 @@ Matrix.prototype._registerUser = function registerUser (user) {
 };
 
 Matrix.prototype._presence_change = function handlePresence (message) {
-  console.log('presence change:', message);
-  
   let id = `/users/${message.event.sender}`;
-
   if (!this.map[id]) this._registerUser({ id: message.event.sender });
-
   this.map[id].online = (message.event.content.presence === 'online');
   this.map[id].presence = message.event.content.presence;
-
-  // TODO: generate this from Fabric
-  this.emit('patch', {
-    op: 'replace',
-    path: [id, 'online'].join('/'),
-    value: this.map[id].online
-  });
 };
 
 Matrix.prototype._member_joined_channel = function handleJoin (message) {
   if (message.event.content.membership !== 'join') return;
   this.emit('join', {
-    user: message.sender.userId,
-    channel: message.target.roomId
+    user: message.event.sender,
+    channel: message.event.room_id
   });
 };
 

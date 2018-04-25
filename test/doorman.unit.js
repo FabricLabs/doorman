@@ -19,7 +19,7 @@ describe('Doorman', function () {
     doorman.use(sample);
 
     doorman.on('response', function (message) {
-      assert.equal(message.parent, 'local/messages/test');
+      assert.equal(message.parent.id, 'local/messages/test');
       assert.equal(message.response, sample.test);
       done();
     });
