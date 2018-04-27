@@ -6,7 +6,10 @@
   "services": ["slack"],
   "slack": {
     "welcomeChannel": "general",
-		"token": "put your token here"
+    "token": "put your token here"
+  },
+  "discord": {
+    "token": "put discord bot token here"
   },
   "maki": {
     "masthead": "/assets/wood-panel.jpg",
