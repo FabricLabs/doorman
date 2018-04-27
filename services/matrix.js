@@ -129,7 +129,8 @@ Matrix.prototype._getUser = async function getUser (id) {
   let result = await this.connection.getUser(id);
   let user = Object.assign({
     id: result.userId,
-    name: result.displayName
+    name: result.displayName,
+    presence: result.presence
   }, result);
   return user;
 };
@@ -142,6 +143,7 @@ Matrix.prototype._getPresences = async function getPresences () {
 
 Matrix.prototype._getMembers = async function getMembers (id) {
   let room = await this.connection.getRoom(id);
+  if (!room) return null;
   for (let i in room.currentState.members) {
     let member = Object.assign({
       id: i
