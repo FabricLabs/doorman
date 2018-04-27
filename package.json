@@ -1,7 +1,7 @@
 {
   "name": "doorman",
-  "version": "0.2.0-pre",
-  "description": "simple community management",
+  "version": "0.1.0",
+  "description": "Multi-platform chatbot framework.",
   "main": "lib/doorman.js",
   "scripts": {
     "start": "node doorman.js",
@@ -14,12 +14,16 @@
     "url": "git+https://github.com/FabricLabs/doorman.git"
   },
   "keywords": [
-    "maki",
-    "slack",
+    "agent",
+    "bot",
+    "chat",
+    "chatbot",
     "community",
-    "invite",
-    "slackin",
-    "invitations"
+    "discord",
+    "fabric",
+    "maki",
+    "matrix",
+    "slack"
   ],
   "author": "Fabric Labs <labs@fabric.pub> (https://labs.fabric.pub)",
   "contributors": [
