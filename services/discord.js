@@ -13,9 +13,9 @@ function Discord(config) {
 util.inherits(Discord, Service);
 
 Discord.prototype.connect = function initialize() {
-  if (this.config.bot_token) {
+  if (this.config.token) {
     this.connection = new DiscordJS.Client();
-    this.connection.login(this.config.bot_token);
+    this.connection.login(this.config.token);
     this.connection.on('ready', this.ready.bind(this));
     this.connection.on('message', this.handler.bind(this));
   }
