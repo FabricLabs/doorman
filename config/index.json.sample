@@ -8,6 +8,9 @@
     "welcomeChannel": "general",
 		"token": "put your token here"
   },
+	"discord": {
+		"bot_token": "put discord bot token here"
+	},
   "maki": {
     "masthead": "/assets/wood-panel.jpg",
     "pitch": "Hello there, friend.",
