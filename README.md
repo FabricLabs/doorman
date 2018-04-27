@@ -156,6 +156,23 @@ For example, a `user` event might emit the following object:
 Configuring Doorman will typically require the creation of a "bot" user on the
 platform of choice, and the use of a security token to authenticate requests.
 
+### Matrix
+Register a user for your bot, then collect the "Access Token" from the user's
+settings — you will need to use the "click to reveal" feature to display the
+token.
+
+Place the token into `config/index.json` under the `matrix` index, and specify
+`user` and `authority`:
+```json
+{
+  "matrix": {
+    "token": "place-the-token-here",
+    "user": "@doorman:ericmartindale.com",
+    "authority": "https://matrix.verse.pub"
+  }
+}
+```
+
 ### Slack
 In your team's workspace, browse to "Apps", "Custom Integrations", "Bots", and
 finally "New configuration".  Place the "API Token" into `config/index.json`:
