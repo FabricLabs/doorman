@@ -33,6 +33,7 @@
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
     "@slack/client": "^4.1.0",
+    "discord.js": "^11.3.2",
     "erm": "^0.0.1",
     "marked": "^0.3.19",
     "matrix-js-sdk": "^0.10.1"
