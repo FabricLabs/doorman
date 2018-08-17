@@ -39,13 +39,13 @@ describe('Service', function () {
       let doorman = new Doorman();
 
       doorman.on('user', async function (message) {
-        assert.equal(message.id, 'local/users/test');
+        assert.equal(message.id, 'local/users/alice');
         await doorman.stop();
         done();
       }).start();
 
       doorman.services.local._registerUser({
-        id: 'test'
+        id: 'alice'
       });
     });
   });
@@ -56,6 +56,24 @@ describe('Service', function () {
 
       doorman.on('channel', async function (message) {
         assert.equal(message.id, 'local/channels/test');
+        await doorman.stop();
+        done();
+      }).start();
+
+      doorman.services.local._registerChannel({
+        id: 'test'
+      });
+    });
+  });
+
+  describe('_getSubscriptions', function (done) {
+    xit ('returns an array', function (done) {
+      let doorman = new Doorman();
+
+      doorman.on('channel', async function (message) {
+        let result = await doorman.services.local._getSubscriptions('test');
+        console.log('result:', result);
+        assert(result instanceof Array);
         await doorman.stop();
         done();
       }).start();
