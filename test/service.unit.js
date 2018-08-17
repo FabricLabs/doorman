@@ -13,14 +13,57 @@ describe('Service', function () {
 
   it('can handle a message', function (done) {
     let doorman = new Doorman();
+    let plugin = { 'test': 'Successfully handled!' };
     let local = new Service();
     let msg = new Buffer([0x01, 0x02]);
 
-    doorman.use(local);
+    doorman.on('response', async function (message) {
+      assert.equal(message.parent.id, 'local/messages/test');
+      assert.equal(message.response, plugin.test);
+      await doorman.stop();
+      done();
+    });
 
-    local.connect();
-    assert.ok(local);
-    
-    done();
+    doorman.use(plugin).start();
+
+    doorman.services.local.emit('message', {
+      id: 'test',
+      actor: 'Alice',
+      target: 'test',
+      object: 'Hello, world!  This is a !test of the message handling flow.'
+    });
   });
+
+  describe('_registerUser', function () {
+    it('emits a "user" event with a routable "id" attribute.', function (done) {
+      let doorman = new Doorman();
+
+      doorman.on('user', async function (message) {
+        assert.equal(message.id, 'local/users/test');
+        await doorman.stop();
+        done();
+      }).start();
+
+      doorman.services.local._registerUser({
+        id: 'test'
+      });
+    });
+  });
+
+  describe('_registerChannel', function (done) {
+    it ('emits a "channel" event with a routable "id" attribute.', function (done) {
+      let doorman = new Doorman();
+
+      doorman.on('channel', async function (message) {
+        assert.equal(message.id, 'local/channels/test');
+        await doorman.stop();
+        done();
+      }).start();
+
+      doorman.services.local._registerChannel({
+        id: 'test'
+      });
+    });
+  });
+
 });
