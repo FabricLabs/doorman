@@ -9,7 +9,7 @@ function Matrix (config) {
   this.config = config || {};
   this.connection = null;
   this.map = {};
-  this.self = { id: config.user };
+  this.self = { id: this.config.user };
 }
 
 util.inherits(Matrix, Service);
