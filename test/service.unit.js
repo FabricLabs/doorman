@@ -48,6 +48,25 @@ describe('Service', function () {
         id: 'alice'
       });
     });
+
+    it('can safely register users with special ids', function (done) {
+      let doorman = new Doorman();
+
+      doorman.on('user', async function (message) {
+        try {
+          assert.equal(message.id, 'local/users/%40%2Fsome%2Frandom%3Ahost.name');
+          await doorman.stop();
+          done();
+        } catch (E) {
+          done(E);
+        }
+
+      }).start();
+
+      doorman.services.local._registerUser({
+        id: '@/some/random:host.name'
+      });
+    });
   });
 
   describe('_registerChannel', function (done) {
