@@ -9,7 +9,6 @@ const Service = require('../lib/service');
 function Matrix (config) {
   this.config = config || {};
   this.connection = null;
-  this.map = {};
   this.state = {};
   this.self = { id: this.config.user };
 }
@@ -37,19 +36,22 @@ Matrix.prototype.connect = function initialize () {
 
 Matrix.prototype.ready = async function () {
   let self = this;
-  let users = await self._getUsers();
-  let channels = await self._getChannels();
-  let presences = await self._getPresences();
 
-  for (let id in users) {
-    self._registerUser(users[id]);
-  }
+  self._getUsers().then(function (users) {
+    for (let id in users) {
+      self._registerUser(users[id]);
+    }
+  });
 
-  for (let id in channels) {
-    self._registerChannel(channels[id]);
-  }
+  self._getChannels().then(function (channels) {
+    for (let id in channels) {
+      self._registerChannel(channels[id]);
+    }
+  });
 
-  console.log('[MATRIX]', 'ready!');
+  await self._getPresences().then(function (presences) {
+    console.log('got presences:', presences);
+  });
 
   this.connection.on('event', this.handler.bind(this));
   this.connection.on('RoomMember.membership', function (event, member, old) {
@@ -58,6 +60,7 @@ Matrix.prototype.ready = async function () {
     }
   });
 
+  console.log('[MATRIX]', 'ready!');
   self.emit('ready');
 };
 
@@ -156,52 +159,36 @@ Matrix.prototype._getMembers = async function getMembers (id) {
   return Object.keys(room.currentState.members);
 };
 
-Matrix.prototype._registerChannel = function registerChannel (channel) {
-  if (!channel.id) return console.error('Channel must have an id.');
-  let id = `/channels/${channel.id}`;
-  this.map[id] = Object.assign({}, this.map[id], channel);
-  this.emit('channel', this.map[id]);
-};
-
 Matrix.prototype._registerUser = function registerUser (user) {
   if (!user.id) return console.error('User must have an id.');
 
   let id = pointer.escape(user.id);
   let path = `/users/${id}`;
 
-  if (id !== user.id) {
-    this.warn('[DOORMAN:SERVICE]', 'warning:', `user id "${user.id}" not equal to local name "${id}"`);
-    try {
-      let original = this._GET(`/users/${user.id}`);
-      if (original) {
-        this._PUT(path, original);
-      }
-    } catch (E) {
-      this.warn('Could not recover original:', E);
-    }
-  }
-
-  this.map[path] = Object.assign({
-    online: user.currentlyActive || false,
-    name: user.displayName || user.id
-  }, this.map[path], user, { id });
-
   try {
-    this._PUT(path, this.map[path]);
+    this._PUT(path, Object.assign({
+      online: user.currentlyActive || false,
+      name: user.displayName || user.id
+    }, user, { id }));
+    this.emit('user', this._GET(path));
   } catch (E) {
     this.error('Something went wrong saving:', E);
   }
 
-  this.emit('user', this.map[path]);
-
   return this;
 };
 
-Matrix.prototype._presence_change = function handlePresence (message) {
-  let id = `/users/${message.event.sender}`;
-  if (!this.map[id]) this._registerUser({ id: message.event.sender });
-  this.map[id].online = (message.event.content.presence === 'online');
-  this.map[id].presence = message.event.content.presence;
+Matrix.prototype._presence_change = async function handlePresence (message) {
+  let id = pointer.escape(message.event.sender);
+  let path = `/users/${id}`;
+
+  try {
+    if (!this._GET(path)) await this._registerUser({ id });
+    this._SET(`${path}/online`, (message.event.content.presence === 'online'));
+    this._SET(`${path}/presence`, message.event.content.presence);
+  } catch (E) {
+    console.log(`Error updating presence for user "${id}":`, E);
+  }
 };
 
 Matrix.prototype._member_joined_channel = function handleJoin (message) {
