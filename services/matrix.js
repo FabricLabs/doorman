@@ -27,6 +27,7 @@ Matrix.prototype.connect = function initialize () {
     });
 
     // TODO: lift switch/case statements from handler to local bindings
+    this.connection.on('info', this.info.bind(this));
     this.connection.on('error', this.error.bind(this));
     this.connection.on('sync', this.sync.bind(this));
 
@@ -108,7 +109,7 @@ Matrix.prototype._getChannels = async function getChannels () {
   });
 
   for (let i in result) {
-    await this._registerChannel(result[i]);
+    this._registerChannel(result[i]);
   }
 
   return result;
@@ -121,7 +122,7 @@ Matrix.prototype._getUsers = async function getUsers () {
   });
 
   for (let i in result) {
-    await this._registerUser(result[i]);
+    this._registerUser(result[i]);
   }
 
   return result;
@@ -150,7 +151,7 @@ Matrix.prototype._getMembers = async function getMembers (id) {
     let member = Object.assign({
       id: i
     }, room.currentState.members[i]);
-    await this._registerUser(member);
+    this._registerUser(member);
   }
   return Object.keys(room.currentState.members);
 };
@@ -164,16 +165,19 @@ Matrix.prototype._registerChannel = function registerChannel (channel) {
 
 Matrix.prototype._registerUser = function registerUser (user) {
   if (!user.id) return console.error('User must have an id.');
+
   let id = pointer.escape(user.id);
   let path = `/users/${id}`;
 
   if (id !== user.id) {
-    console.warn('[SERVICE:MATRIX]', 'warning:', `user id "${user.id}" not equal to local name "${id}"`);
+    this.warn('[DOORMAN:SERVICE]', 'warning:', `user id "${user.id}" not equal to local name "${id}"`);
     try {
       let original = this._GET(`/users/${user.id}`);
-      this._PUT(`/users/${id}`, original);
+      if (original) {
+        this._PUT(path, original);
+      }
     } catch (E) {
-      console.warn('Could not recover original:', E);
+      this.warn('Could not recover original:', E);
     }
   }
 
@@ -181,7 +185,16 @@ Matrix.prototype._registerUser = function registerUser (user) {
     online: user.currentlyActive || false,
     name: user.displayName || user.id
   }, this.map[path], user, { id });
+
+  try {
+    this._PUT(path, this.map[path]);
+  } catch (E) {
+    this.error('Something went wrong saving:', E);
+  }
+
   this.emit('user', this.map[path]);
+
+  return this;
 };
 
 Matrix.prototype._presence_change = function handlePresence (message) {
@@ -197,10 +210,6 @@ Matrix.prototype._member_joined_channel = function handleJoin (message) {
     user: message.event.sender,
     channel: message.event.room_id
   });
-};
-
-Matrix.prototype.error = function errorHandler (error) {
-  console.error('[MATRIX]', error);
 };
 
 module.exports = Matrix;

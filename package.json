@@ -9,7 +9,7 @@
     "test": "NODE_ENV=test mocha --recursive",
     "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive",
     "make:docs": "jsdoc lib README.md -c jsdoc.json -d docs",
-    "review:coverage": "npm run coverage && http-server coverage/"
+    "review:coverage": "npm run coverage && http-server coverage/lcov-report"
   },
   "repository": {
     "type": "git",
