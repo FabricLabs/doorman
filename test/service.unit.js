@@ -34,6 +34,40 @@ describe('Service', function () {
     });
   });
 
+  describe('_PUT', function () {
+    it('returns a truthy value when called correctly', async function () {
+      let doorman = new Doorman();
+
+      async function body () {
+        let local = doorman.services.local;
+        let result = local._PUT('/some-key', { foo: 'Hello, world!' });
+        assert.ok(result);
+        assert.equal(local.state['some-key'].foo, 'Hello, world!');
+      }
+
+      await doorman.start();
+      await body();
+    });
+  });
+
+  describe('_GET', function () {
+    it('returns a truthy value when called correctly', async function () {
+      let doorman = new Doorman();
+
+      async function body () {
+        let local = doorman.services.local;
+        local._PUT('/some-key', { foo: 'Hello, world!' });
+        let result = local._GET('/some-key/foo');
+        assert.ok(result);
+        assert.equal(result, 'Hello, world!');
+        assert.equal(local.state['some-key'].foo, 'Hello, world!');
+      }
+
+      await doorman.start();
+      await body();
+    });
+  });
+
   describe('_registerUser', function () {
     it('emits a "user" event with a routable "id" attribute.', function (done) {
       let doorman = new Doorman();
@@ -54,7 +88,7 @@ describe('Service', function () {
 
       doorman.on('user', async function (message) {
         try {
-          assert.equal(message.id, 'local/users/%40%2Fsome%2Frandom%3Ahost.name');
+          assert.equal(message.id, 'local/users/@~1some~1random:host.name');
           await doorman.stop();
           done();
         } catch (E) {

@@ -7,6 +7,7 @@ function Local (config) {
   this.config = config || {};
   this.connection = null;
   this.map = {};
+  this.state = {};
 }
 
 util.inherits(Local, Service);

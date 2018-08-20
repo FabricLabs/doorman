@@ -1,6 +1,6 @@
 {
   "name": "doorman",
-  "version": "0.1.0",
+  "version": "0.1.1-pre",
   "description": "Multi-platform chatbot framework.",
   "main": "lib/doorman.js",
   "scripts": {
@@ -41,6 +41,7 @@
     "@slack/client": "^4.1.0",
     "discord.js": "^11.3.2",
     "erm": "^0.0.1",
+    "json-pointer": "^0.6.0",
     "marked": "^0.3.19",
     "matrix-js-sdk": "^0.10.1"
   },

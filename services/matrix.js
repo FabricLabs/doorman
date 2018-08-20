@@ -3,12 +3,14 @@
 const util = require('util');
 const matrix = require('matrix-js-sdk');
 const markdown = require('marked');
+const pointer = require('json-pointer');
 const Service = require('../lib/service');
 
 function Matrix (config) {
   this.config = config || {};
   this.connection = null;
   this.map = {};
+  this.state = {};
   this.self = { id: this.config.user };
 }
 
@@ -162,12 +164,24 @@ Matrix.prototype._registerChannel = function registerChannel (channel) {
 
 Matrix.prototype._registerUser = function registerUser (user) {
   if (!user.id) return console.error('User must have an id.');
-  let id = `/users/${user.id}`;
-  this.map[id] = Object.assign({
+  let id = pointer.escape(user.id);
+  let path = `/users/${id}`;
+
+  if (id !== user.id) {
+    console.warn('[SERVICE:MATRIX]', 'warning:', `user id "${user.id}" not equal to local name "${id}"`);
+    try {
+      let original = this._GET(`/users/${user.id}`);
+      this._PUT(`/users/${id}`, original);
+    } catch (E) {
+      console.warn('Could not recover original:', E);
+    }
+  }
+
+  this.map[path] = Object.assign({
     online: user.currentlyActive || false,
     name: user.displayName || user.id
-  }, this.map[id], user);
-  this.emit('user', this.map[id]);
+  }, this.map[path], user, { id });
+  this.emit('user', this.map[path]);
 };
 
 Matrix.prototype._presence_change = function handlePresence (message) {

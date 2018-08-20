@@ -1,6 +1,6 @@
 {
   "chat": "https://chat.fabric.pub/#/room/#bots:matrix.org",
-  "source": "https://github.com/FabricLabs/idlerpg-bot",
+  "source": "https://github.com/FabricLabs/doorman",
   "templates": {
     "default": {
       "layoutFile": "assets/docs.tmpl"

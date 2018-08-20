@@ -8,6 +8,7 @@ function Discord (config) {
   this.config = config || {};
   this.connection = null;
   this.map = {};
+  this.state = {};
 }
 
 util.inherits(Discord, Service);

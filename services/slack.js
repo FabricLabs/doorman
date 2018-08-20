@@ -8,6 +8,7 @@ function Slack (config) {
   this.config = config || {};
   this.connection = null;
   this.map = {};
+  this.state = {};
 }
 
 util.inherits(Slack, Service);
