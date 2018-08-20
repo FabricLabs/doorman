@@ -1,22 +1,22 @@
 'use strict';
 
-const util = require('util');
 const matrix = require('matrix-js-sdk');
 const markdown = require('marked');
 const pointer = require('json-pointer');
 const Service = require('../lib/service');
 
-function Matrix (config) {
-  this.config = config || {};
-  this.connection = null;
-  this.state = {};
-  this.self = { id: this.config.user };
+class Matrix extends Service {
+  constructor (config) {
+    super();
+    this.config = config || {};
+    this.connection = null;
+    this.state = { users: [] };
+    this.self = { id: this.config.user };
+  }
 }
 
-util.inherits(Matrix, Service);
-
 Matrix.prototype.connect = function initialize () {
-  console.log('[MATRIX]', 'connecting... config:', this.config);
+  console.log('[MATRIX]', 'connecting...');
 
   if (this.config.token) {
     this.connection = matrix.createClient({
@@ -184,8 +184,8 @@ Matrix.prototype._presence_change = async function handlePresence (message) {
 
   try {
     if (!this._GET(path)) await this._registerUser({ id });
-    this._SET(`${path}/online`, (message.event.content.presence === 'online'));
-    this._SET(`${path}/presence`, message.event.content.presence);
+    this._PUT(`${path}/online`, (message.event.content.presence === 'online'));
+    this._PUT(`${path}/presence`, message.event.content.presence);
   } catch (E) {
     console.log(`Error updating presence for user "${id}":`, E);
   }
