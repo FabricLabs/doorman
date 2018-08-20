@@ -34,6 +34,21 @@ describe('Service', function () {
     });
   });
 
+  it('calls handler smoothly', async function () {
+    let doorman = new Doorman();
+
+    async function body () {
+      doorman.services.local.emit('message', {
+        actor: 'test',
+        target: 'some-room',
+        object: 'Hello, world!'
+      });
+    }
+
+    await doorman.start();
+    await body();
+  });
+
   describe('_PUT', function () {
     it('returns a truthy value when called correctly', async function () {
       let doorman = new Doorman();
