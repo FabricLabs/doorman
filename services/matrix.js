@@ -30,8 +30,12 @@ Matrix.prototype.connect = function initialize () {
     this.connection.on('error', this.error.bind(this));
     this.connection.on('sync', this.sync.bind(this));
 
-    this.connection.startClient();
+    return this.connection.startClient();
   }
+};
+
+Matrix.prototype.disconnect = function disconnect () {
+  return this.connection.stopClient();
 };
 
 Matrix.prototype.ready = async function () {
@@ -99,7 +103,7 @@ Matrix.prototype.handler = function route (message) {
   }
 };
 
-Matrix.prototype.send = function send (channel, message) {
+Matrix.prototype.send = async function send (channel, message) {
   let html = markdown(message);
   // TODO: complain to `matrix-js-sdk` about duplicate params
   this.connection.sendHtmlMessage(channel, message, html);
