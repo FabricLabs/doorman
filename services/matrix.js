@@ -3,12 +3,13 @@
 const matrix = require('matrix-js-sdk');
 const markdown = require('marked');
 const pointer = require('json-pointer');
+
 const Service = require('../lib/service');
 
 class Matrix extends Service {
   constructor (config) {
-    super();
-    this.config = config || {};
+    super(config);
+    this.config = Object.assign({}, config);
     this.connection = null;
     this.state = { users: [] };
     this.self = { id: this.config.user };
@@ -30,39 +31,41 @@ Matrix.prototype.connect = function initialize () {
     this.connection.on('error', this.error.bind(this));
     this.connection.on('sync', this.sync.bind(this));
 
-    return this.connection.startClient();
+    this.connection.startClient();
   }
+
+  return this;
 };
 
 Matrix.prototype.disconnect = function disconnect () {
-  return this.connection.stopClient();
+  this.info('matrix disconnecting...');
+  this.connection.stopClient();
+  return this;
 };
 
 Matrix.prototype.ready = async function () {
   let self = this;
 
-  self._getUsers().then(function (users) {
-    for (let id in users) {
-      self._registerUser(users[id]);
-    }
-  });
+  if (self.config.mirror) {
+    self._getUsers().then(function (users) {
+      for (let id in users) {
+        self._registerUser(users[id]);
+      }
+    });
 
-  self._getChannels().then(function (channels) {
-    for (let id in channels) {
-      self._registerChannel(channels[id]);
-    }
-  });
+    self._getChannels().then(function (channels) {
+      for (let id in channels) {
+        self._registerChannel(channels[id]);
+      }
+    });
 
-  await self._getPresences().then(function (presences) {
-    console.log('got presences:', presences);
-  });
+    await self._getPresences().then(function (presences) {
+      console.log('got presences:', presences);
+    });
+  }
 
   this.connection.on('event', this.handler.bind(this));
-  this.connection.on('RoomMember.membership', function (event, member, old) {
-    if (member.membership === 'invite' && member.userId === self.config.user) {
-      self.connection.joinRoom(member.roomId);
-    }
-  });
+  this.connection.on('RoomMember.membership', this._handleMembershipMessage);
 
   console.log('[MATRIX]', 'ready!');
   self.emit('ready');
@@ -104,6 +107,10 @@ Matrix.prototype.handler = function route (message) {
 };
 
 Matrix.prototype.send = async function send (channel, message) {
+  if (!this.connection) {
+    this.error(`Attempted to send message, but no connection.  Target: ${channel} Message: ${message}`);
+    return this;
+  }
   let html = markdown(message);
   // TODO: complain to `matrix-js-sdk` about duplicate params
   this.connection.sendHtmlMessage(channel, message, html);
@@ -192,6 +199,13 @@ Matrix.prototype._presence_change = async function handlePresence (message) {
     this._PUT(`${path}/presence`, message.event.content.presence);
   } catch (E) {
     console.log(`Error updating presence for user "${id}":`, E);
+  }
+};
+
+Matrix.prototype._handleMembershipMessage = function (event, member, old) {
+  // if the message is an invitation, and it is addressed to us, join the room
+  if (member.membership === 'invite' && member.userId === this.config.user) {
+    this.connection.joinRoom(member.roomId);
   }
 };
 
