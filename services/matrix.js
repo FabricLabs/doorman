@@ -38,6 +38,7 @@ Matrix.prototype.connect = function initialize () {
 };
 
 Matrix.prototype.disconnect = function disconnect () {
+  if (!this.connection) return this.warn(`Attempting to disconnect Matrix, but no Matrix connection exists.`);
   this.info('matrix disconnecting...');
   this.connection.stopClient();
   return this;
