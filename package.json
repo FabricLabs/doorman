@@ -1,13 +1,15 @@
 {
   "name": "doorman",
-  "version": "0.1.0",
+  "version": "0.1.1-pre",
   "description": "Multi-platform chatbot framework.",
   "main": "lib/doorman.js",
   "scripts": {
+    "docs": "npm run make:docs && http-server docs/",
     "start": "node doorman.js",
     "test": "NODE_ENV=test mocha --recursive",
     "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive",
-    "make:docs": "jsdoc lib README.md -d docs"
+    "make:docs": "jsdoc lib README.md -c jsdoc.json -d docs",
+    "review:coverage": "npm run coverage && http-server coverage/lcov-report"
   },
   "repository": {
     "type": "git",
@@ -27,8 +29,8 @@
   ],
   "author": "Fabric Labs <labs@fabric.pub> (https://labs.fabric.pub)",
   "contributors": [
-    "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
-    "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
+    "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)",
+    "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)"
   ],
   "license": "MIT",
   "bugs": {
@@ -39,12 +41,14 @@
     "@slack/client": "^4.1.0",
     "discord.js": "^11.3.2",
     "erm": "^0.0.1",
+    "json-pointer": "^0.6.0",
     "marked": "^0.3.19",
     "matrix-js-sdk": "^0.10.1"
   },
   "devDependencies": {
     "chai": "^4.1.2",
-    "coveralls": "^3.0.0",
+    "codecov": "^3.0.4",
+    "http-server": "^0.11.1",
     "istanbul": "^1.1.0-alpha.1",
     "jsdoc": "^3.5.5",
     "mocha": "^4.0.0",

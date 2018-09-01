@@ -2,31 +2,33 @@ const assert = require('assert');
 const expect = require('chai').expect;
 
 const Doorman = require('../lib/doorman');
+const Matrix = require('../services/matrix');
 
 const EventEmitter = require('events').EventEmitter;
 
-describe('Doorman', function () {
+describe('Matrix', function () {
   it('should expose a constructor', function () {
-    assert(Doorman instanceof Function);
+    assert(Matrix instanceof Function);
   });
 
   it('can handle a message', function (done) {
-    let doorman = new Doorman();
+    let doorman = new Doorman({
+      services: ['matrix']
+    });
     let plugin = { 'test': 'Successfully handled!' };
 
-    doorman.use(plugin);
-
-    doorman.on('response', function (message) {
-      assert.equal(message.parent.id, 'local/messages/test');
+    doorman.on('response', async function (message) {
+      assert.equal(message.parent.id, 'matrix/messages/test');
       assert.equal(message.response, plugin.test);
+      await doorman.stop();
       done();
     });
 
-    doorman.start();
+    doorman.use(plugin).start();
 
-    doorman.services.local.emit('message', {
+    doorman.services.matrix.emit('message', {
       id: 'test',
-      actor: 'Alice',
+      actor: '@alice:localhost.localdomain',
       target: 'test',
       object: 'Hello, world!  This is a !test of the message handling flow.'
     });
