@@ -195,7 +195,12 @@ Matrix.prototype._presence_change = async function handlePresence (message) {
   let path = `/users/${id}`;
 
   try {
-    if (!this._GET(path)) await this._registerUser({ id });
+    this._GET(path);
+  } catch (E) {
+    await this._registerUser({ id });
+  }
+
+  try {
     this._PUT(`${path}/online`, (message.event.content.presence === 'online'));
     this._PUT(`${path}/presence`, message.event.content.presence);
   } catch (E) {
