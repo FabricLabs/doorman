@@ -130,6 +130,21 @@ Matrix.prototype._getChannels = async function getChannels () {
   return result;
 };
 
+Matrix.prototype._getChannel = async function getChannel (id) {
+  if (!this.connection) return this.warn(`Attempting to _getChannel(), but no Matrix connection exists.`);
+  let room = await this.connection.getRoom(id);
+
+  if (!room) return null;
+
+  let channel = Object.assign({
+    id: room.roomId
+  }, room);
+
+  this._registerChannel(channel);
+
+  return channel;
+};
+
 Matrix.prototype._getUsers = async function getUsers () {
   let result = await this.connection.getUsers().map(user => {
     user.id = user.userId;
@@ -159,15 +174,24 @@ Matrix.prototype._getPresences = async function getPresences () {
   return result;
 };
 
+Matrix.prototype._getPresence = async function getPresence (id) {
+  if (!this.connection) return this.warn(`Attempting to _getPresence(), but no Matrix connection exists.`);
+  let member = await this._getUser(id);
+  return member.presence || null;
+};
+
 Matrix.prototype._getMembers = async function getMembers (id) {
-  let room = await this.connection.getRoom(id);
+  let room = await this._getChannel(id);
+
   if (!room) return null;
+
   for (let i in room.currentState.members) {
     let member = Object.assign({
       id: i
     }, room.currentState.members[i]);
     this._registerUser(member);
   }
+
   return Object.keys(room.currentState.members);
 };
 
