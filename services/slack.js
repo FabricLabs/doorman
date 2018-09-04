@@ -1,66 +1,83 @@
 'use strict';
 
-const util = require('util');
+const pointer = require('json-pointer');
 const SlackSDK = require('@slack/client');
 const Service = require('../lib/service');
 
-function Slack (config) {
-  this.config = config || {};
-  this.connection = null;
-  this.map = {};
-  this.state = {};
-}
+class Slack extends Service {
+  constructor (config) {
+    super(config);
+    this.config = Object.assign({
+      store: './data/slack'
+    }, config);
+  }
 
-util.inherits(Slack, Service);
+  connect () {
+    super.connect();
 
-Slack.prototype.connect = function initialize () {
-  if (this.config.token) {
-    this.slack = new SlackSDK.WebClient(this.config.token);
-    this.connection = new SlackSDK.RTMClient(this.config.token);
-    this.connection.on('ready', this.ready.bind(this));
-    this.connection.on('message', this.handler.bind(this));
-    this.connection.on('team_join', this._team_join.bind(this));
-    this.connection.on('channel_created', this._channel_created.bind(this));
-    this.connection.on('presence_change', this._presence_change.bind(this));
-    this.connection.on('member_joined_channel', this._member_joined_channel.bind(this));
-    this.connection.on('member_left_channel', this._member_left_channel.bind(this));
-    this.connection.start({
-      batch_presence_aware: true
+    this.log('[SLACK]', 'connecting... config:', this.config);
+
+    if (this.config.token) {
+      this.slack = new SlackSDK.WebClient(this.config.token);
+      this.connection = new SlackSDK.RTMClient(this.config.token);
+      this.connection.on('ready', this.ready.bind(this));
+      this.connection.on('message', this.handler.bind(this));
+      this.connection.on('team_join', this._handleUserCreation.bind(this));
+      this.connection.on('channel_created', this._handleChannelCreation.bind(this));
+      this.connection.on('presence_change', this._handlePresenceChange.bind(this));
+      this.connection.on('member_joined_channel', this._handleChannelJoin.bind(this));
+      this.connection.on('member_left_channel', this._handleChannelPart.bind(this));
+      this.connection.start({
+        batch_presence_aware: true
+      });
+    }
+  }
+
+  async handler (message) {
+    this.log('[SERVICE:SLACK]', 'message handler handling:', message);
+
+    // TODO: include bot messages in state
+    if (message.subtype === 'bot_message') return;
+
+    let target = pointer.escape(message.user);
+    let user = await this._getUser(`/users/${target}`);
+
+    if (!user) return this.error('[SERVICE:SLACK]', `received message, but user did not exist in map: ${JSON.stringify(message)}`);
+    if (!message.user) return this.error('[SERVICE:SLACK]', `received message, but no user: ${JSON.stringify(message)}`);
+
+    this.emit('message', {
+      actor: message.user,
+      target: message.channel,
+      object: message.text
     });
   }
-};
 
-Slack.prototype.ready = async function (data) {
-  let self = this;
+  async ready () {
+    let self = this;
 
-  let users = await self._getUsers();
-  let channels = await self._getChannels();
+    if (self.config.mirror) {
+      let users = await self._getUsers();
+      let channels = await self._getChannels();
 
-  for (let id in users) {
-    self._registerUser(users[id]);
-    self._getPresence(users[id].id);
+      for (let id in users) {
+        await self._registerUser(users[id]);
+        await self._getPresence(users[id].id);
+      }
+
+      for (let id in channels) {
+        await self._registerChannel(channels[id]);
+      }
+    }
+
+    self.emit('ready');
   }
 
-  for (let id in channels) {
-    self._registerChannel(channels[id]);
+  async _registerUser (user) {
+    await super._registerUser(user);
+    this.connection.subscribePresence([user.id]);
+    return this;
   }
-
-  self.emit('ready');
-};
-
-Slack.prototype.handler = function route (message) {
-  let user = this.map[`/users/${message.user}`];
-
-  if (!user) return console.error('[SERVICE:SLACK]', `received message, but user did not exist in map: ${JSON.stringify(message)}`);
-  if (!message.user) return console.error('[SERVICE:SLACK]', `received message, but no user: ${JSON.stringify(message)}`);
-  if (user.is_bot) return;
-  if (message.subtype === 'bot_message') return;
-  this.emit('message', {
-    actor: message.user,
-    target: message.channel,
-    object: message.text
-  });
-};
+}
 
 Slack.prototype.join = function join (channel) {
   // TODO: complain about Slack still not supporting this for bot users
@@ -86,12 +103,11 @@ Slack.prototype._getSubscriptions = async function getSubscriptions (id) {
 };
 
 Slack.prototype._getPresence = async function getPresence (id) {
-  let path = `/users/${id}`;
-  this.map[path].presence = (await this.slack.users.getPresence({
+  let presence = (await this.slack.users.getPresence({
     user: id
   })).presence;
-  this._presence_change({ user: id, presence: this.map[path].presence });
-  return this.map[path].presence;
+  this._handlePresenceChange({ user: id, presence: presence });
+  return presence;
 };
 
 Slack.prototype._getChannelMembers = async function getChannelMembers (id) {
@@ -101,48 +117,36 @@ Slack.prototype._getChannelMembers = async function getChannelMembers (id) {
   return result.channel.members;
 };
 
-Slack.prototype._registerUser = function registerUser (user) {
-  if (!user.id) return console.error('User must have an id.');
-  let id = `/users/${user.id}`;
-  this.map[id] = Object.assign({
-    subscriptions: []
-  }, this.map[id], user);
-  this.emit('user', this.map[id]);
-  this.connection.subscribePresence([id]);
-};
-
-Slack.prototype._registerChannel = function registerChannel (channel) {
-  if (!channel.id) return console.error('Channel must have an id.');
-  let id = `/channels/${channel.id}`;
-  this.map[id] = Object.assign({}, this.map[id], channel);
-  this.emit('channel', this.map[id]);
-};
-
-Slack.prototype._team_join = function handleJoin (event) {
+Slack.prototype._handleUserCreation = function handleJoin (event) {
   this._registerUser(event.user);
 };
 
-Slack.prototype._channel_created = function handleChannel (event) {
+Slack.prototype._handleChannelCreation = function handleChannel (event) {
   this._registerChannel(event.channel);
 };
 
-Slack.prototype._presence_change = function handlePresence (event) {
-  let id = `/users/${event.user}`;
+Slack.prototype._handlePresenceChange = async function handlePresence (event) {
+  let online = (event.presence === 'active');
+  let target = pointer.escape(event.user);
+  let path = `/users/${target}`;
 
-  if (!this.map[id]) this._registerUser({ id: event.user });
+  this.log('presence change:', event);
 
-  this.map[id].online = (event.presence === 'active');
-  this.map[id].presence = event.presence;
+  try {
+    await this._GET(path);
+  } catch (E) {
+    await this._registerUser({ id: event.user });
+  }
 
   // TODO: generate this from Fabric
   this.emit('patch', {
     op: 'replace',
-    path: [id, 'online'].join('/'),
-    value: this.map[id].online
+    path: [path, 'online'].join('/'),
+    value: online
   });
 };
 
-Slack.prototype._member_joined_channel = function handleJoin (event) {
+Slack.prototype._handleChannelJoin = function handleJoin (event) {
   let id = `/users/${event.user}`;
   let channelID = `/channels/${event.channel}`;
 
@@ -164,17 +168,7 @@ Slack.prototype._member_joined_channel = function handleJoin (event) {
   });
 };
 
-Slack.prototype._member_left_channel = function handlePart (event) {
-  let id = `/users/${event.user}`;
-  for (let index in this.map[id].channels) {
-    if (this.map[id].channels[index] === event.channel) {
-      this.emit('patch', {
-        op: 'remove',
-        path: [id, 'channels', index].join('/')
-      });
-    }
-  }
-
+Slack.prototype._handleChannelPart = async function handlePart (event) {
   this.emit('part', {
     user: event.user,
     channel: event.channel

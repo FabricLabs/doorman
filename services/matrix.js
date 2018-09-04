@@ -10,12 +10,16 @@ const Fabric = require('../lib/fabric');
 class Matrix extends Service {
   constructor (config) {
     super(config);
-    this.config = Object.assign({}, config);
-    this.connection = null;
+
+    this.config = Object.assign({
+      store: './data/matrix'
+    }, config);
+
     this.state = {
       users: {},
       channels: {}
     };
+
     this.self = { id: this.config.user };
   }
 }
@@ -70,7 +74,7 @@ Matrix.prototype.ready = async function () {
   }
 
   this.connection.on('event', this.handler.bind(this));
-  this.connection.on('RoomMember.membership', this._handleMembershipMessage);
+  this.connection.on('RoomMember.membership', this._handleMembershipMessage.bind(this));
 
   console.log('[MATRIX]', 'ready!');
   self.emit('ready');
