@@ -25,7 +25,7 @@ class Matrix extends Service {
 }
 
 Matrix.prototype.connect = async function initialize () {
-  console.log('[MATRIX]', 'connecting...');
+  this.log('connecting...');
 
   this.store = new Fabric.Store({ path: './data/matrix' });
 
@@ -197,7 +197,7 @@ Matrix.prototype._getChannel = async function getChannel (id) {
   let channel = Object.assign({
     id: room.roomId,
     name: room.name,
-    members: room.members || []
+    members: room.currentState.members || []
   }/*, room */);
 
   await this._registerChannel(channel);

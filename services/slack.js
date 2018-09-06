@@ -1,6 +1,5 @@
 'use strict';
 
-const pointer = require('json-pointer');
 const SlackSDK = require('@slack/client');
 const Service = require('../lib/service');
 
@@ -10,12 +9,13 @@ class Slack extends Service {
     this.config = Object.assign({
       store: './data/slack'
     }, config);
+    this.self = null;
   }
 
-  connect () {
-    super.connect();
+  async connect () {
+    await super.connect();
 
-    this.log('[SLACK]', 'connecting... config:', this.config);
+    this.log('connecting...');
 
     if (this.config.token) {
       this.slack = new SlackSDK.WebClient(this.config.token);
@@ -38,12 +38,20 @@ class Slack extends Service {
 
     // TODO: include bot messages in state
     if (message.subtype === 'bot_message') return;
+    if (!message.user) return this.error('[SERVICE:SLACK]', `received message, but no user:`, message);
+    if (!message.channel) return this.error('[SERVICE:SLACK]', `received message, but no channel:`, message);
 
-    let target = pointer.escape(message.user);
-    let user = await this._getUser(`/users/${target}`);
+    try {
+      await this._getUser(message.user);
+    } catch (E) {
+      this.error('Could not get user info:', E);
+    }
 
-    if (!user) return this.error('[SERVICE:SLACK]', `received message, but user did not exist in map: ${JSON.stringify(message)}`);
-    if (!message.user) return this.error('[SERVICE:SLACK]', `received message, but no user: ${JSON.stringify(message)}`);
+    try {
+      await this._getChannel(message.channel);
+    } catch (E) {
+      this.error('Could not get channel info:', E);
+    }
 
     this.emit('message', {
       actor: message.user,
@@ -53,23 +61,43 @@ class Slack extends Service {
   }
 
   async ready () {
-    let self = this;
+    let service = this;
 
-    if (self.config.mirror) {
-      let users = await self._getUsers();
-      let channels = await self._getChannels();
+    if (service.config.mirror) {
+      let users = await service._getUsers();
+      let channels = await service._getChannels();
 
       for (let id in users) {
-        await self._registerUser(users[id]);
-        await self._getPresence(users[id].id);
+        await service._registerUser(users[id]);
+        await service._getPresence(users[id].id);
       }
 
       for (let id in channels) {
-        await self._registerChannel(channels[id]);
+        await service._registerChannel(channels[id]);
       }
     }
 
-    self.emit('ready');
+    let identity = await this.slack.auth.test().catch(service.error);
+
+    service.self = Object.assign({
+      id: identity.user_id
+    }, identity);
+
+    service.log('ready!');
+    service.emit('ready');
+  }
+
+  async send (channel, message) {
+    this.connection.sendMessage(message, channel);
+  }
+
+  async join (channel) {
+    try {
+      // TODO: complain about Slack still not supporting this for bot users
+      this.slack.channels.join({ channel: channel });
+    } catch (E) {
+      this.error(`Could not join "${channel}":`, E);
+    }
   }
 
   async _registerUser (user) {
@@ -77,102 +105,123 @@ class Slack extends Service {
     this.connection.subscribePresence([user.id]);
     return this;
   }
-}
 
-Slack.prototype.join = function join (channel) {
-  // TODO: complain about Slack still not supporting this for bot users
-  this.connection.joinRoom(channel);
-};
+  async _getUser (id) {
+    let result = null;
+    let user = null;
 
-Slack.prototype.send = function send (channel, message) {
-  this.connection.sendMessage(message, channel);
-};
+    try {
+      result = await this.slack.users.info({ user: id });
+    } catch (E) {
+      this.error('Could not retrieve user;', E);
+    }
 
-Slack.prototype._getChannels = async function getChannels () {
-  let result = await this.slack.channels.list();
-  return result.channels;
-};
+    if (result && result.user) {
+      await this._registerUser(result.user);
+      user = this._GET(`/users/${id}`);
+    }
 
-Slack.prototype._getUsers = async function getUsers () {
-  let result = await this.slack.users.list();
-  return result.members;
-};
-
-Slack.prototype._getSubscriptions = async function getSubscriptions (id) {
-  return this._getChannelMembers(id);
-};
-
-Slack.prototype._getPresence = async function getPresence (id) {
-  let presence = (await this.slack.users.getPresence({
-    user: id
-  })).presence;
-  this._handlePresenceChange({ user: id, presence: presence });
-  return presence;
-};
-
-Slack.prototype._getChannelMembers = async function getChannelMembers (id) {
-  let result = await this.slack.channels.info({
-    channel: id
-  });
-  return result.channel.members;
-};
-
-Slack.prototype._handleUserCreation = function handleJoin (event) {
-  this._registerUser(event.user);
-};
-
-Slack.prototype._handleChannelCreation = function handleChannel (event) {
-  this._registerChannel(event.channel);
-};
-
-Slack.prototype._handlePresenceChange = async function handlePresence (event) {
-  let online = (event.presence === 'active');
-  let target = pointer.escape(event.user);
-  let path = `/users/${target}`;
-
-  this.log('presence change:', event);
-
-  try {
-    await this._GET(path);
-  } catch (E) {
-    await this._registerUser({ id: event.user });
+    return user;
   }
 
-  // TODO: generate this from Fabric
-  this.emit('patch', {
-    op: 'replace',
-    path: [path, 'online'].join('/'),
-    value: online
-  });
-};
+  async _getChannel (id) {
+    let result = null;
+    let channel = null;
 
-Slack.prototype._handleChannelJoin = function handleJoin (event) {
-  let id = `/users/${event.user}`;
-  let channelID = `/channels/${event.channel}`;
+    try {
+      result = await this.slack.channels.info({ channel: id });
+    } catch (E) {
+      this.error(`Could not get channel "${id}":`, E);
+    }
 
-  this.emit('patch', {
-    op: 'add',
-    path: [id, 'subscriptions', 0].join('/'),
-    value: event.channel
-  });
+    if (result && result.channel) {
+      await this._registerChannel(result.channel);
+      channel = this._GET(`/channels/${id}`);
+    }
 
-  this.emit('patch', {
-    op: 'add',
-    path: [channelID, 'members', 0].join('/'),
-    value: event.channel
-  });
+    return channel;
+  }
 
-  this.emit('join', {
-    user: event.user,
-    channel: event.channel
-  });
-};
+  async _getUsers () {
+    let result = await this.slack.users.list();
 
-Slack.prototype._handleChannelPart = async function handlePart (event) {
-  this.emit('part', {
-    user: event.user,
-    channel: event.channel
-  });
-};
+    if (this.config.mirror) {
+      for (let i in result.members) {
+        this._registerUser(result.members[i]);
+      }
+    }
+
+    return result.members;
+  }
+
+  async _getChannels () {
+    let result = await this.slack.channels.list();
+
+    if (this.config.mirror) {
+      for (let i in result.channels) {
+        this._registerChannel(result.channels[i]);
+      }
+    }
+
+    return result.channels;
+  }
+
+  async _getChannelMembers (id) {
+    return this._getMembers(id);
+  }
+
+  async _getMembers (id) {
+    let channel = null;
+    let members = null;
+
+    try {
+      channel = await this._getChannel(id);
+      members = channel.members || [];
+    } catch (E) {
+      console.log('Could not retrieve channel:', E);
+    }
+
+    return members;
+  }
+
+  async _getPresence (id) {
+    let presence = (await this.slack.users.getPresence({
+      user: id
+    })).presence;
+    this._handlePresenceChange({ user: id, presence: presence });
+    return presence;
+  }
+
+  async _handleUserCreation (event) {
+    return this._registerUser(event.user);
+  }
+
+  async _handleChannelCreation (event) {
+    return this._registerChannel(event.channel);
+  }
+
+  async _handleChannelJoin (event) {
+    this.emit('join', {
+      user: event.user,
+      channel: event.channel
+    });
+  }
+
+  async _handleChannelPart (event) {
+    this.emit('part', {
+      user: event.user,
+      channel: event.channel
+    });
+  }
+
+  async _handlePresenceChange (event) {
+    let online = (event.presence === 'active');
+
+    await this._registerUser({ id: event.user });
+    await this._updatePresence(event.user, online);
+
+    return this;
+  }
+}
 
 module.exports = Slack;
