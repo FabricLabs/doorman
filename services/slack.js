@@ -176,9 +176,12 @@ class Slack extends Service {
 
     try {
       channel = await this._getChannel(id);
-      members = channel.members || [];
     } catch (E) {
       console.log('Could not retrieve channel:', E);
+    }
+
+    if (channel) {
+      members = channel.members || [];
     }
 
     return members;
@@ -188,7 +191,7 @@ class Slack extends Service {
     let presence = (await this.slack.users.getPresence({
       user: id
     })).presence;
-    this._handlePresenceChange({ user: id, presence: presence });
+    await this._handlePresenceChange({ user: id, presence: presence });
     return presence;
   }
 
