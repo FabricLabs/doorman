@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
-    <title>Class: Plugin &middot; Documentation</title>
+    <title>JSDoc: Class: Plugin</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -11,11 +11,15 @@
     <![endif]-->
     <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
     <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
-  </head>
-  <body>
-    <div id="main">
-      <h1 class="page-title">Class: Plugin</h1>
-      
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: Plugin</h1>
+
+    
 
 
 
@@ -24,11 +28,7 @@
 
 <header>
     
-        <h2><span class="attribs"><span class="type-signature"></span></span>Plugin<span class="signature">(config)</span><span class="type-signature"></span></h2>
-        
-            <div class="class-description">Plugins are the developer-facing component of Doorman.  Used to configure
-behavior by consumers, developers can rely on the Plugin prototype to provide
-basic functionality needed by an instanced plugin.</div>
+        <h2><span class="attribs"><span class="type-signature"></span></span>Plugin<span class="signature">()</span><span class="type-signature"></span></h2>
         
     
 </header>
@@ -39,11 +39,9 @@ basic functionality needed by an instanced plugin.</div>
         
 
     
-    <h2>Constructor</h2>
-    
 
     
-    <h4 class="name" id="Plugin"><span class="type-signature"></span>new Plugin<span class="signature">(config)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="Plugin"><span class="type-signature"></span>new Plugin<span class="signature">()</span><span class="type-signature"></span></h4>
     
 
     
@@ -51,7 +49,9 @@ basic functionality needed by an instanced plugin.</div>
 
 
 <div class="description">
-    Create an instance of a plugin.
+    Plugins are the developer-facing component of Doorman.  Used to configure
+behavior by consumers, developers can rely on the Plugin prototype to provide
+basic functionality needed by an instanced plugin.
 </div>
 
 
@@ -60,55 +60,6 @@ basic functionality needed by an instanced plugin.</div>
 
 
 
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>config</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Object</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Configuration to be passed to plugin.</td>
-        </tr>
-
-    
-    </tbody>
-</table>
 
 
 
@@ -144,7 +95,7 @@ basic functionality needed by an instanced plugin.</div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line15">line 15</a>
+        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line13">line 13</a>
     </li></ul></dd>
     
 
@@ -154,8 +105,6 @@ basic functionality needed by an instanced plugin.</div>
 
     
 </dl>
-
-
 
 
 
@@ -301,7 +250,7 @@ basic functionality needed by an instanced plugin.</div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line30">line 30</a>
+        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line24">line 24</a>
     </li></ul></dd>
     
 
@@ -311,8 +260,6 @@ basic functionality needed by an instanced plugin.</div>
 
     
 </dl>
-
-
 
 
 
@@ -460,7 +407,7 @@ basic functionality needed by an instanced plugin.</div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line72">line 72</a>
+        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line66">line 66</a>
     </li></ul></dd>
     
 
@@ -472,6 +419,112 @@ basic functionality needed by an instanced plugin.</div>
 </dl>
 
 
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    Chainable method.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type"><a href="Plugin.html">Plugin</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="start"><span class="type-signature"></span>start<span class="signature">()</span><span class="type-signature"> &rarr; {<a href="Plugin.html">Plugin</a>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Start the plugin.  This method is generally overridden by the child.
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line75">line 75</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
 
 
 
@@ -619,7 +672,7 @@ basic functionality needed by an instanced plugin.</div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line82">line 82</a>
+        <a href="plugin.js.html">plugin.js</a>, <a href="plugin.js.html#line84">line 84</a>
     </li></ul></dd>
     
 
@@ -629,8 +682,6 @@ basic functionality needed by an instanced plugin.</div>
 
     
 </dl>
-
-
 
 
 
@@ -684,16 +735,19 @@ basic functionality needed by an instanced plugin.</div>
 
 
 
-    </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Doorman.html">Doorman</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="Router.html">Router</a></li></ul></nav>
-    <br class="clear">
-    <footer>
-        <a href="https://github.com/FabricLabs/doorman">git://</a>
-        
-          &middot; <a href="https://chat.fabric.pub/#/room/#bots:matrix.org">Community</a>
-        
-    </footer>
-    <script> prettyPrint(); </script>
-    <script src="scripts/linenumber.js"> </script>
-  </body>
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Doorman.html">Doorman</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="Router.html">Router</a></li><li><a href="Service.html">Service</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Fri Apr 27 2018 18:35:30 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
 </html>

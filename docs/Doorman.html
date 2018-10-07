@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
-    <title>Class: Doorman &middot; Documentation</title>
+    <title>JSDoc: Class: Doorman</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -11,11 +11,15 @@
     <![endif]-->
     <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
     <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
-  </head>
-  <body>
-    <div id="main">
-      <h1 class="page-title">Class: Doorman</h1>
-      
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: Doorman</h1>
+
+    
 
 
 
@@ -26,8 +30,6 @@
     
         <h2><span class="attribs"><span class="type-signature"></span></span>Doorman<span class="signature">(config)</span><span class="type-signature"></span></h2>
         
-            <div class="class-description">General-purpose bot framework.</div>
-        
     
 </header>
 
@@ -36,8 +38,6 @@
     
         
 
-    
-    <h2>Constructor</h2>
     
 
     
@@ -49,7 +49,7 @@
 
 
 <div class="description">
-    Construct a Doorman.
+    General-purpose bot framework.
 </div>
 
 
@@ -101,102 +101,7 @@
 
             
 
-            <td class="description last">Configuration.
-                <h6>Properties</h6>
-                
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>path</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Object</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Local path for Store.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>services</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Array</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">List of services to enable.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>trigger</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Prefix to use as a trigger.</td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
+            <td class="description last">Overall configuration object.</td>
         </tr>
 
     
@@ -237,7 +142,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line28">line 28</a>
+        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line15">line 15</a>
     </li></ul></dd>
     
 
@@ -247,8 +152,6 @@
 
     
 </dl>
-
-
 
 
 
@@ -286,522 +189,6 @@
 
     
         <h3 class="subsection-title">Methods</h3>
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="_defineTrigger"><span class="type-signature"></span>_defineTrigger<span class="signature">(handler)</span><span class="type-signature"> &rarr; {<a href="Doorman.html">Doorman</a>}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Register a Trigger.
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>handler</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Trigger</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Trigger to handle.</td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line226">line 226</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-<div class="param-desc">
-    Instance of Doorman configured to handle Trigger.
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type"><a href="Doorman.html">Doorman</a></span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="parse"><span class="type-signature">(async) </span>parse<span class="signature">(msg)</span><span class="type-signature"></span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Look for triggers in a message.
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Message</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Message to evaluate.</td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line69">line 69</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="start"><span class="type-signature">(async) </span>start<span class="signature">()</span><span class="type-signature"> &rarr; {<a href="Doorman.html">Doorman</a>}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Activates a Doorman instance.
-</div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line91">line 91</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-<div class="param-desc">
-    Chainable method.
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type"><a href="Doorman.html">Doorman</a></span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="stop"><span class="type-signature">(async) </span>stop<span class="signature">()</span><span class="type-signature"> &rarr; {<a href="Doorman.html">Doorman</a>}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Halt a Doorman instance.
-</div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line143">line 143</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-<div class="param-desc">
-    Chainable method.
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type"><a href="Doorman.html">Doorman</a></span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
 
         
             
@@ -910,7 +297,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line166">line 166</a>
+        <a href="doorman.js.html">doorman.js</a>, <a href="doorman.js.html#line156">line 156</a>
     </li></ul></dd>
     
 
@@ -920,8 +307,6 @@
 
     
 </dl>
-
-
 
 
 
@@ -975,16 +360,19 @@
 
 
 
-    </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Doorman.html">Doorman</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="Router.html">Router</a></li></ul></nav>
-    <br class="clear">
-    <footer>
-        <a href="https://github.com/FabricLabs/doorman">git://</a>
-        
-          &middot; <a href="https://chat.fabric.pub/#/room/#bots:matrix.org">Community</a>
-        
-    </footer>
-    <script> prettyPrint(); </script>
-    <script src="scripts/linenumber.js"> </script>
-  </body>
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Doorman.html">Doorman</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="Router.html">Router</a></li><li><a href="Service.html">Service</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Fri Apr 27 2018 18:35:30 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
 </html>
