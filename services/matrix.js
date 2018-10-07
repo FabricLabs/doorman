@@ -23,6 +23,19 @@ class Matrix extends Fabric.Service {
     return this;
   }
 
+  info (msg) {
+    console.log('[MATRIX:INFO]', msg);
+  }
+
+  sync (state, previous, data) {
+    console.log('[MATRIX:SYNC]', state);
+    switch (state) {
+      case 'PREPARED':
+        this.ready();
+        break;
+    }
+  }
+
   async connect () {
     this.log('Connecting...');
 
