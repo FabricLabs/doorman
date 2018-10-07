@@ -8,6 +8,7 @@
     "make:api": "npm run parse:api && jsdoc lib/ README.md -d docs/",
     "make:docs": "jsdoc lib README.md -c jsdoc.json -d docs",
     "parse:api": "jsdoc2md --configure jsdoc.json --files lib/** README.md > API.md",
+    "test": "NODE_ENV=test mocha tests --recursive"
   },
   "repository": {
     "type": "git",
