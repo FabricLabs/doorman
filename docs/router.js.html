@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: router.js</title>
+    <title>Source: router.js &middot; Documentation</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -11,15 +11,11 @@
     <![endif]-->
     <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
     <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
-</head>
-
-<body>
-
-<div id="main">
-
-    <h1 class="page-title">Source: router.js</h1>
-
-    
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: router.js</h1>
+      
 
 
 
@@ -28,69 +24,88 @@
         <article>
             <pre class="prettyprint source linenums"><code>'use strict';
 
-/**
- * Maintains a list of triggers ("commands") and their behaviors.
- * @param       {Object} map Map of command names => behaviors.
- * @constructor
- */
-function Router (config) {
-  this.config = config || {};
-  this.handlers = {};
-}
+const Fabric = require('@fabric/core');
 
 /**
- * Assembles an array of responses to the triggers contained in a particular message.
- * @param  {String} msg Input message to route.
- * @return {Array}     List of outputs generated from the input string.
+ * Process incoming messages.
+ * @extends Fabric.Scribe
  */
-Router.prototype.route = async function handle (msg) {
-  if (!msg.actor || !msg.object || !msg.target) return null;
-  if (typeof msg.object !== 'string') return null;
-  let output = [];
-  let parts = msg.object
-    .split(/\s+/g)
-    .filter(x => x.charAt(0) === this.config.trigger)
-    .map(x => x.substr(1));
+class Router extends Fabric.Scribe {
+  /**
+   * Maintains a list of triggers ("commands") and their behaviors.
+   * @param       {Object} map Map of command names => behaviors.
+   */
+  constructor (config) {
+    super(config);
 
-  for (let i in parts) {
-    let token = parts[i];
-    let command = token.toLowerCase();
-    let handler = this.handlers[command];
-    let result = null;
+    this.config = Object.assign({
+      routes: {},
+      handlers: {}
+    }, config);
 
-    if (handler) {
-      switch (typeof handler.value) {
-        case 'string':
-          result = handler.value;
-          break;
-        default:
-          result = await handler.value.apply(this.fabric.plugins[handler.plugin], [msg]);
-          break;
-      }
+    this.handlers = {};
+    this.status = 'ready';
 
-      if (result) {
-        output.push(result);
-      }
-    }
+    return this;
   }
 
-  return output;
-};
+  /**
+   * Assembles a list of possible responses to the incoming request.
+   * @param  {String} msg Input message to route.
+   * @return {Array}     List of outputs generated from the input string.
+   */
+  async route (msg) {
+    if (!msg.actor || !msg.object || !msg.target) return null;
+    if (typeof msg.object !== 'string') return null;
 
-Router.prototype.trust = function wire (fabric) {
-  this.fabric = fabric;
-};
+    let output = [];
+    let parts = msg.object
+      .split(/\s+/g)
+      .filter(x => x.charAt(0) === this.config.trigger)
+      .map(x => x.substr(1));
 
-/**
- * Attaches a new handler to the router.
- * @param  {Plugin} plugin Instance of the plugin.
- * @param  {Plugin.name} name Name of the plugin.
- * @return {Router}        Configured instance of the router.
- */
-Router.prototype.use = function configure (plugin) {
-  this.handlers[plugin.name] = plugin;
-  return this;
-};
+    for (let i in parts) {
+      let token = parts[i];
+      let command = token.toLowerCase();
+      let handler = this.handlers[command];
+      let result = null;
+
+      if (handler) {
+        switch (typeof handler.value) {
+          case 'string':
+            result = handler.value;
+            break;
+          default:
+            console.log('no such native trigger, calling...', command);
+            result = await handler.value.apply(this.fabric.plugins[handler.plugin], [msg]);
+            break;
+        }
+
+        if (result) {
+          output.push(result);
+        }
+      }
+    }
+
+    return output;
+  }
+
+  trust (fabric) {
+    this.fabric = fabric;
+  }
+
+  /**
+   * Attaches a new handler to the router.
+   * @param  {Plugin} plugin Instance of the plugin.
+   * @param  {Plugin.name} name Name of the plugin.
+   * @return {Router}        Configured instance of the router.
+   */
+  use (plugin) {
+    if (!plugin.name) throw new Error('Cannot use plugin: no "name" attribute specified.');
+    this.handlers[plugin.name] = plugin;
+    return this;
+  }
+}
 
 module.exports = Router;
 </code></pre>
@@ -100,19 +115,16 @@ module.exports = Router;
 
 
 
-</div>
-
-<nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Doorman.html">Doorman</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="Router.html">Router</a></li><li><a href="Service.html">Service</a></li></ul>
-</nav>
-
-<br class="clear">
-
-<footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Fri Apr 27 2018 18:35:30 GMT+0200 (CEST)
-</footer>
-
-<script> prettyPrint(); </script>
-<script src="scripts/linenumber.js"> </script>
-</body>
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Doorman.html">Doorman</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="Router.html">Router</a></li></ul></nav>
+    <br class="clear">
+    <footer>
+        <a href="https://github.com/FabricLabs/doorman">git://</a>
+        
+          &middot; <a href="https://chat.fabric.pub/#/room/#bots:matrix.org">Community</a>
+        
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"> </script>
+  </body>
 </html>
