@@ -2,6 +2,7 @@
 
 const Fabric = require('@fabric/core');
 const SlackSDK = require('@slack/client');
+const Service = require('../types/service');
 
 class Slack extends Fabric.Service {
   constructor (config) {

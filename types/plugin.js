@@ -2,6 +2,10 @@
 
 const Fabric = require('@fabric/core');
 
+const util = require('util');
+const Disk = require('./disk');
+const Service = require('../types/service');
+
 /**
  * Plugins are the developer-facing component of Doorman.  Used to configure
  * behavior by consumers, developers can rely on the Plugin prototype to provide

@@ -6,6 +6,7 @@ const matrix = require('matrix-js-sdk');
 const pointer = require('json-pointer');
 
 const markdown = require('marked');
+const Service = require('../types/service');
 
 class Matrix extends Fabric.Service {
   constructor (config) {

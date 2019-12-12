@@ -1,6 +1,6 @@
 # Doorman
 [![Build Status](https://img.shields.io/travis/FabricLabs/doorman.svg?branch=master&style=flat-square)](https://travis-ci.org/FabricLabs/doorman)
-[![Coverage Status](https://img.shields.io/coveralls/FabricLabs/doorman.svg?style=flat-square)](https://coveralls.io/r/FabricLabs/doorman)
+[![Coverage Status](https://img.shields.io/codecov/c/github/FabricLabs/doorman.svg?branch=develop&style=flat-square)](https://codecov.io/gh/FabricLabs/doorman)
 [![Total Contributors](https://img.shields.io/github/contributors/FabricLabs/doorman.svg?style=flat-square)](https://github.com/FabricLabs/doorman/contributors)
 
 Doorman is a friendly, automated helper for managers of large online
@@ -18,7 +18,7 @@ projects and events using [a robust-plugin API](#plugins).
 ## Services
 Doorman comes pre-configured with support for multiple chat platforms, including
 [Slack][slack], [Discord][discord], and [Matrix][matrix].  Adding support for
-additional services is easy — inspect the `lib/service.js` prototype for a list
+additional services is easy — inspect the `types/service.js` prototype for a list
 of required methods.  Feel free to submit a Pull Request to add support for your
 favorite services!
 

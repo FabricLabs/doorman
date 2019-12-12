@@ -1,7 +1,9 @@
 'use strict';
 
 const Fabric = require('@fabric/core');
+
 const DiscordJS = require('discord.js');
+const Service = require('../type/service');
 
 class Discord extends Fabric.Service {
   constructor (config) {
