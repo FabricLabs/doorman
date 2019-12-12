@@ -1,7 +1,7 @@
 const assert = require('assert');
 const expect = require('chai').expect;
 
-const Plugin = require('../lib/plugin');
+const Plugin = require('../types/plugin');
 const EventEmitter = require('events').EventEmitter;
 
 describe('Plugin', function () {

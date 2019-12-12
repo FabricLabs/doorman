@@ -2,7 +2,7 @@
 
 const util = require('util');
 const DiscordJS = require('discord.js');
-const Service = require('../lib/service');
+const Service = require('../type/service');
 
 function Discord (config) {
   this.config = config || {};

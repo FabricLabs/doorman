@@ -2,7 +2,7 @@
 
 const util = require('util');
 const SlackSDK = require('@slack/client');
-const Service = require('../lib/service');
+const Service = require('../types/service');
 
 function Slack (config) {
   this.config = config || {};

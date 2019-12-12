@@ -1,9 +1,9 @@
+'use strict';
+
+const settings = require('../settings/default');
 const assert = require('assert');
-const expect = require('chai').expect;
 
-const Doorman = require('../lib/doorman');
-const Service = require('../lib/service');
-
+const Doorman = require('..');
 const EventEmitter = require('events').EventEmitter;
 
 describe('Doorman', function () {

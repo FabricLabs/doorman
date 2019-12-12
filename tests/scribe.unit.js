@@ -1,7 +1,7 @@
 const assert = require('assert');
 const expect = require('chai').expect;
 
-const Scribe = require('../lib/scribe');
+const Scribe = require('../types/scribe');
 
 describe('Scribe', function () {
   it('should expose a constructor', function () {

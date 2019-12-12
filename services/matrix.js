@@ -3,7 +3,7 @@
 const util = require('util');
 const matrix = require('matrix-js-sdk');
 const markdown = require('marked');
-const Service = require('../lib/service');
+const Service = require('../types/service');
 
 function Matrix (config) {
   this.config = config || {};

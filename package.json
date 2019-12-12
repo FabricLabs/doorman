@@ -57,5 +57,11 @@
     "ignore": [
       "/test/"
     ]
+  },
+  "nyc": {
+    "include": [
+      "types",
+      "services"
+    ]
   }
 }
