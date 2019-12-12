@@ -3,7 +3,7 @@
 const Fabric = require('@fabric/core');
 
 const DiscordJS = require('discord.js');
-const Service = require('../type/service');
+const Service = require('../types/service');
 
 class Discord extends Fabric.Service {
   constructor (config) {
