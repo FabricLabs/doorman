@@ -1,14 +1,16 @@
 {
   "name": "doorman",
-  "version": "0.1.1-pre",
+  "version": "0.2.0",
   "description": "Multi-platform chatbot framework.",
-  "main": "lib/doorman.js",
+  "main": "types/doorman.js",
   "scripts": {
-    "docs": "npm run make:docs && http-server docs/",
     "make:api": "npm run parse:api && jsdoc lib/ README.md -d docs/",
-    "make:docs": "jsdoc lib README.md -c jsdoc.json -d docs",
     "parse:api": "jsdoc2md --configure jsdoc.json --files lib/** README.md > API.md",
-    "test": "NODE_ENV=test mocha tests --recursive"
+    "docs": "npm run make:docs && ecstatic docs",
+    "start": "node scripts/doorman.js",
+    "test": "NODE_ENV=test mocha tests",
+    "coverage": "NODE_ENV=test nyc npm test",
+    "make:docs": "jsdoc -c jsdoc.json types README.md -d docs"
   },
   "repository": {
     "type": "git",
@@ -37,7 +39,7 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#fabric-core-refactor",
+    "@fabric/core": "FabricLabs/fabric#prepare-release-0.1.0",
     "@slack/client": "^4.1.0",
     "discord.js": "^11.4.2",
     "erm": "^0.0.1",
@@ -51,7 +53,7 @@
   "devDependencies": {
     "chai": "^4.1.2",
     "codecov": "^3.0.4",
-    "http-server": "^0.11.1",
+    "ecstatic": "^4.1.2",
     "istanbul": "^1.1.0-alpha.1",
     "jsdoc": "FabricLabs/jsdoc",
     "mocha": "^4.0.0",

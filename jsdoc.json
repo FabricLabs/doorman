@@ -1,6 +1,6 @@
 {
   "name": "@fabric/doorman",
-  "chat": "https://chat.fabric.pub/#/room/#bots:matrix.org",
+  "chat": "https://chat.fabric.pub/#/room/#doorman:fabric.pub",
   "source": "https://github.com/FabricLabs/doorman",
   "templates": {
     "default": {
