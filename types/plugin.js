@@ -32,7 +32,7 @@ class Plugin extends Fabric.Scribe {
    * @return {Mixed}      Loaded plugin, or `null`.
    */
   static fromName (name) {
-    let disk = new Fabric.Disk();
+    let disk = new Disk();
     let path = `plugins/${name}`;
     let real = `doorman-${name}`;
     let fallback = `./node_modules/doorman/${path}.js`;

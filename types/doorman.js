@@ -9,6 +9,7 @@ const Fabric = require('@fabric/core');
 // your current working directory.
 const Plugin = require('./plugin');
 const Router = require('./router');
+const Disk = require('./disk');
 
 // Used to create plugins later on.
 // TODO: refactor & remove
@@ -43,7 +44,7 @@ class Doorman extends Fabric {
   }
 
   static Service (name) {
-    let disk = new Fabric.Disk();
+    let disk = new Disk();
     let path = `services/${name}`;
     let fallback = `node_modules/doorman/${path}.js`;
     let plugin = null;
