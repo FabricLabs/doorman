@@ -1,246 +1,245 @@
 'use strict';
 
-// Doorman was built for Fabric, an alternative to the World Wide Web.
-const Fabric = require('@fabric/core');
+const util = require('util');
+const crypto = require('crypto');
 
-// ## Submodules
-// Here, we load some submodules.  You can browse their definitions by running
-// `npm run docs` to compile a local copy of Doorman's documentation based on
-// your current working directory.
 const Plugin = require('./plugin');
 const Router = require('./router');
-const Disk = require('./disk');
-
-// Used to create plugins later on.
-// TODO: refactor & remove
-const util = require('util');
+const Scribe = require('./scribe');
 
 /**
  * General-purpose bot framework.
+ * @param       {Object} config Overall configuration object.
+ * @constructor
  */
-class Doorman extends Fabric.Service {
-  /**
-   * Construct a Doorman.
-   * @param {Object} config Configuration.
-   * @param {Object} config.path Local path for {@link Store}.
-   * @param {Array} config.services List of services to enable.
-   * @param {String} config.trigger Prefix to use as a trigger.
-   */
-  constructor (config) {
-    super(config);
+function Doorman (config) {
+  let self = this;
 
-    this.config = Object.assign({
-      path: './stores/doorman',
-      trigger: '!'
-    }, config);
+  self.config = Object.assign({
+    trigger: '!'
+  }, config || {});
 
-    this.triggers = {};
+  self.plugins = {};
+  self.services = {};
+  self.triggers = {};
 
-    this.router = new Router({ trigger: this.config.trigger });
-    this.router.trust(this);
+  self.router = new Router({ trigger: self.config.trigger });
+  self.scribe = new Scribe({ namespace: 'doorman' });
 
-    return this;
+  self.router.trust(self);
+
+  return self;
+}
+
+util.inherits(Doorman, require('events').EventEmitter);
+
+Doorman.prototype.start = function configure () {
+  let self = this;
+
+  self.enable('local');
+
+  if (self.config.services && Array.isArray(self.config.services)) {
+    self.config.services.forEach(service => self.enable(service));
   }
 
-  static Service (name) {
-    let disk = new Disk();
-    let path = `services/${name}`;
-    let fallback = `node_modules/doorman/${path}.js`;
-    let plugin = null;
-
-    // load from local `services` path, else fall back to Doorman
-    if (disk.exists(path + '.js') || disk.exists(path)) {
-      plugin = disk.get(path);
-    } else if (disk.exists(fallback)) {
-      plugin = disk.get(fallback);
-    } else if (Fabric.registry[name]) {
-      plugin = Fabric.registry[name];
-    } else {
-      plugin = Fabric.Service;
-    }
-
-    return plugin;
+  if (self.config.plugins && Array.isArray(self.config.plugins)) {
+    self.config.plugins.forEach(module => self.use(module));
   }
 
-  /**
-   * Look for triggers in a message.
-   * @param  {Message}  msg Message to evaluate.
-   */
-  async parse (msg) {
-    let answers = await this.router.route(msg);
-    let message = null;
+  if (self.config.triggers) {
+    Object.keys(self.config.triggers).forEach(name => {
+      let route = {
+        name: self.config.trigger + name,
+        value: self.config.triggers[name]
+      };
 
-    if (answers.length) {
-      switch (answers.length) {
-        case 1:
-          message = answers[0];
-          break;
-        default:
-          message = answers.join('\n\n');
-          break;
-      }
-    }
-
-    return message || null;
+      self.router.use(route);
+    });
   }
 
-  /**
-   * Activates a Doorman instance.
-   * @return {Doorman} Chainable method.
-   */
-  async start () {
-    let self = this;
+  self.register({
+    name: 'help',
+    value: `Available triggers: ${Object.keys(self.triggers).map(x => '`' + self.config.trigger + x + '`').join(', ')}`
+  });
 
-    for (let i in self.config.services) {
-      let name = self.config.services[i].toLowerCase();
-      let service = self.constructor.Service(name);
+  if (self.config.debug) {
+    this.scribe.log('[DEBUG]', 'triggers:', Object.keys(self.triggers));
+  }
 
-      // Register and enable if we have service
-      if (service) {
-        await self.register(service);
-        await self.enable(name);
-      }
-    }
+  self.emit('ready');
 
-    // identify ourselves to the network
-    await this.identify();
+  this.scribe.log('started!');
 
-    if (self.config.plugins && Array.isArray(self.config.plugins)) {
-      for (let name in self.config.plugins) {
-        self.use(self.config.plugins[name]);
-      }
-    }
+  return this;
+};
 
-    if (self.config.triggers) {
-      Object.keys(self.config.triggers).forEach(name => {
-        let route = {
-          name: self.config.trigger + name,
-          value: self.config.triggers[name]
-        };
+Doorman.prototype.enable = function enable (name) {
+  let self = this;
 
-        self.router.use(route);
+  let Service = require(`../services/${name}`);
+  let service = new Service(this.config[name]);
+
+  self.scribe.log(`enabling service "${name}"...`);
+
+  service.on('patch', function (patch) {
+    self.emit('patch', Object.assign({}, patch, {
+      path: name + patch.path // TODO: check in Vector Machine that this is safe
+    }));
+  });
+
+  service.on('user', function (user) {
+    self.emit('user', {
+      id: [name, 'users', user.id].join('/'),
+      name: user.name,
+      online: user.online || false,
+      subscriptions: []
+    });
+  });
+
+  service.on('channel', function (channel) {
+    self.emit('channel', {
+      id: [name, 'channels', channel.id].join('/'),
+      name: channel.name,
+      members: []
+    });
+  });
+
+  service.on('join', async function (join) {
+    self.emit('join', {
+      user: [name, 'users', join.user].join('/'),
+      channel: [name, 'channels', join.channel].join('/')
+    });
+  });
+
+  service.on('message', async function (msg) {
+    let now = Date.now();
+    let id = [now, msg.actor, msg.target, msg.object].join('/');
+    let hash = crypto.createHash('sha256').update(id).digest('hex');
+    let message = {
+      id: [name, 'messages', (msg.id || hash)].join('/'),
+      actor: [name, 'users', msg.actor].join('/'),
+      target: [name, 'channels', msg.target].join('/'),
+      object: msg.object,
+      origin: {
+        type: 'Link',
+        name: name
+      },
+      created: now
+    };
+
+    self.emit('message', message);
+
+    let response = await self.parse(message);
+    if (response) {
+      self.emit('response', {
+        parent: message,
+        response: response
+      });
+
+      service.send(msg.target, response, {
+        parent: message
       });
     }
+  });
 
-    self._defineTrigger({
-      name: 'help',
-      value: `Available triggers: ${Object.keys(self.triggers).map(x => '`' + self.config.trigger + x + '`').join(', ')}`
+  service.on('ready', function () {
+    self.emit('service', { name });
+  });
+
+  this.services[name] = service;
+  this.services[name].connect();
+
+  return this;
+};
+
+/**
+ * Configure Doorman to use a Plugin.
+ * @param  {Mixed} plugin Can be of type Map (trigger name => behavior) or Plugin (constructor function).
+ * @return {Doorman} Chainable method.
+ */
+Doorman.prototype.use = function assemble (plugin) {
+  let self = this;
+  let name = null;
+  let Handler = null;
+
+  if (typeof plugin === 'string') {
+    Handler = Plugin.fromName(plugin);
+    name = plugin;
+  } else if (plugin instanceof Function) {
+    Handler = plugin;
+    name = Handler.name.toLowerCase();
+  } else {
+    Handler = plugin;
+  }
+
+  self.scribe.log(`enabling plugin "${name}"...`, Handler);
+
+  if (!Handler) return false;
+  if (Handler instanceof Function) {
+    util.inherits(Handler, Plugin);
+
+    let handler = new Handler(self.config[name]);
+
+    handler.on('message', function (message) {
+      let parts = message.target.split('/');
+      self.services[parts[0]].send(parts[2], message.object);
     });
 
-    if (self.config.debug) {
-      this.log('[DEBUG]', 'triggers:', Object.keys(self.triggers));
-    }
+    self.plugins[name] = handler;
+    self.plugins[name].trust(self).start();
 
-    this.log('started!');
-
-    return this;
-  }
-
-  /**
-   * Halt a Doorman instance.
-   * @return {Doorman} Chainable method.
-   */
-  async stop () {
-    let self = this;
-
-    self.log('Stopping...');
-
-    if (self.plugins) {
-      for (let name in self.plugins) {
-        await self.plugins[name].stop();
-      }
-    }
-
-    await super.stop();
-
-    self.log('Stopped!');
-
-    return self;
-  }
-
-  /**
-   * Configure Doorman to use a Plugin.
-   * @param  {Mixed} plugin Can be of type Map (trigger name => behavior) or Plugin (constructor function).
-   * @return {Doorman} Chainable method.
-   */
-  use (plugin) {
-    let self = this;
-    let name = null;
-    let Handler = null;
-
-    if (typeof plugin === 'string') {
-      Handler = Plugin.fromName(plugin);
-      name = plugin;
-    } else if (plugin instanceof Function) {
-      Handler = plugin;
-      name = Handler.name.toLowerCase();
-    } else {
-      Handler = plugin;
-    }
-
-    self.log(`enabling plugin "${name}"...`, Handler);
-
-    if (!Handler) return false;
-    if (Handler instanceof Function) {
-      util.inherits(Handler, Plugin);
-
-      let handler = new Handler(self.config[name]);
-
-      handler.on('whisper', function (whisper) {
-        let parts = whisper.target.split('/');
-        self.services[parts[0]].whisper(parts[2], whisper.message);
-      });
-
-      handler.on('message', function (message) {
-        self.log(`[PLUGIN:${name.toUpperCase()}]`, 'sent (unhandled) message:', message);
-        let parts = message.target.split('/');
-        self.services[parts[0]].send(parts[2], message.object);
-      });
-
-      self.plugins[name] = handler;
-      self.plugins[name].trust(self).start();
-
-      if (self.plugins[name].triggers) {
-        console.log(`plugin "${name}" has triggers:`, self.plugins[name].triggers);
-        Object.keys(self.plugins[name].triggers).forEach(trigger => {
-          self._defineTrigger(Object.assign({
-            plugin: name
-          }, self.plugins[name].triggers[trigger]));
-        });
-      }
-    } else {
-      Object.keys(Handler).forEach(name => {
-        let value = Handler[name];
-        self._defineTrigger({ name, value });
+    if (self.plugins[name].triggers) {
+      Object.keys(self.plugins[name].triggers).forEach(trigger => {
+        self.register(Object.assign({
+          plugin: name
+        }, self.plugins[name].triggers[trigger]));
       });
     }
-
-    return this;
+  } else {
+    Object.keys(Handler).forEach(name => {
+      let value = Handler[name];
+      self.register({ name, value });
+    });
   }
 
-  /**
-   * Register a Trigger.
-   * @param  {Trigger} handler Trigger to handle.
-   * @return {Doorman}         Instance of Doorman configured to handle Trigger.
-   */
-  _defineTrigger (handler) {
-    if (!handler.name) return false;
-    if (!handler.value) return false;
+  return this;
+};
 
-    this.triggers[handler.name] = handler.value;
-    this.router.use(handler);
+Doorman.prototype.register = function configure (handler) {
+  if (!handler.name) return false;
+  if (!handler.value) return false;
 
-    this.emit('trigger', handler);
+  this.triggers[handler.name] = handler.value;
+  this.router.use(handler);
 
-    return this;
-  }
+  this.emit('trigger', handler);
 
-  _joinRoom (channel) {
-    for (let id in this.services) {
-      let result = this.services[id].join(channel);
-      this.log(`service ${id} join: ${result}`);
+  return this;
+};
+
+Doorman.prototype.parse = async function interpret (msg) {
+  let answers = await this.router.route(msg);
+  let message = null;
+
+  if (answers.length) {
+    switch (answers.length) {
+      case 1:
+        message = answers[0];
+        break;
+      default:
+        message = answers.join('\n\n');
+        break;
     }
   }
-}
+
+  return message || null;
+};
+
+Doorman.prototype._joinRoom = function (channel) {
+  for (let id in this.services) {
+    let result = this.services[id].join(channel);
+    console.log(`service ${id} join: ${result}`);
+  }
+};
 
 module.exports = Doorman;

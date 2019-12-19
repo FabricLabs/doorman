@@ -1,15 +1,13 @@
 'use strict';
 
 const Fabric = require('@fabric/core');
-
 const DiscordJS = require('discord.js');
-const Service = require('../types/service');
 
 class Discord extends Fabric.Service {
   constructor (config) {
     super(config);
     this.config = Object.assign({
-      store: './data/discord'
+      store: './stores/discord'
     }, config);
   }
 
