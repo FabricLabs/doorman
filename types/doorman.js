@@ -18,7 +18,7 @@ const util = require('util');
 /**
  * General-purpose bot framework.
  */
-class Doorman extends Fabric {
+class Doorman extends Fabric.Service {
   /**
    * Construct a Doorman.
    * @param {Object} config Configuration.
@@ -30,8 +30,7 @@ class Doorman extends Fabric {
     super(config);
 
     this.config = Object.assign({
-      path: './data/doorman',
-      services: ['local'],
+      path: './stores/doorman',
       trigger: '!'
     }, config);
 
