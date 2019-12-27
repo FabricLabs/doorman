@@ -1,5 +1,5 @@
 {
-  "name": "doorman",
+  "name": "@fabric/doorman",
   "version": "0.2.0",
   "description": "Multi-platform chatbot framework.",
   "main": "types/doorman.js",
