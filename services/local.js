@@ -1,22 +1,22 @@
 'use strict';
 
-const util = require('util');
-const Service = require('../types/service');
+const Service = require('@fabric/core/types/service');
 
-function Local (config) {
-  this.config = config || {};
-  this.connection = null;
-  this.map = {};
+class Local extends Service {
+  constructor (config = {}) {
+    super(config);
+    this.config = config || {};
+    this.connection = null;
+    this.map = {};
+  }
+
+  handler (message) {
+    this.emit('message', {
+      actor: message.user,
+      target: message.channel,
+      object: message.text
+    });
+  }
 }
-
-util.inherits(Local, Service);
-
-Local.prototype.handler = function route (message) {
-  this.emit('message', {
-    actor: message.user,
-    target: message.channel,
-    object: message.text
-  });
-};
 
 module.exports = Local;

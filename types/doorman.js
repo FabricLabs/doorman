@@ -7,8 +7,9 @@ const Fabric = require('@fabric/core');
 // Here, we load some submodules.  You can browse their definitions by running
 // `npm run docs` to compile a local copy of Doorman's documentation based on
 // your current working directory.
-const Plugin = require('./plugin');
+const Disk = require('./disk');
 const Router = require('./router');
+const Plugin = require('./plugin');
 
 // Used to create plugins later on.
 // TODO: refactor & remove
@@ -29,7 +30,7 @@ class Doorman extends Fabric {
     super(config);
 
     this.config = Object.assign({
-      path: './data/doorman',
+      path: './stores/doorman',
       services: ['local'],
       trigger: '!'
     }, config);
@@ -43,9 +44,9 @@ class Doorman extends Fabric {
   }
 
   static Service (name) {
-    let disk = new Fabric.Disk();
+    let disk = new Disk();
     let path = `services/${name}`;
-    let fallback = `node_modules/doorman/${path}.js`;
+    let fallback = `node_modules/@fabric/doorman/${path}.js`;
     let plugin = null;
 
     // load from local `services` path, else fall back to Doorman
@@ -70,7 +71,7 @@ class Doorman extends Fabric {
     let answers = await this.router.route(msg);
     let message = null;
 
-    if (answers.length) {
+    if (answers && answers.length) {
       switch (answers.length) {
         case 1:
           message = answers[0];
@@ -79,17 +80,15 @@ class Doorman extends Fabric {
           message = answers.join('\n\n');
           break;
       }
+    } else {
+      console.warn('[DOORMAN:CORE]', '[PARSER]', `Input message ${msg} did not get routed to any services:`, msg);
     }
 
     return message || null;
   }
 
-  /**
-   * Activates a Doorman instance.
-   * @return {Doorman} Chainable method.
-   */
-  async start () {
-    let self = this;
+  async _loadServices () {
+    const self = this;
 
     for (let i in self.config.services) {
       let name = self.config.services[i].toLowerCase();
@@ -102,6 +101,17 @@ class Doorman extends Fabric {
       }
     }
 
+    return this;
+  }
+
+  /**
+   * Activates a Doorman instance.
+   * @return {Doorman} Chainable method.
+   */
+  async start () {
+    let self = this;
+
+    await this._loadServices();
     // identify ourselves to the network
     await this.identify();
 

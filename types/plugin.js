@@ -1,13 +1,14 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
+const Scribe = require('@fabric/core/types/scribe');
+const Disk = require('./disk');
 
 /**
  * Plugins are the developer-facing component of Doorman.  Used to configure
  * behavior by consumers, developers can rely on the Plugin prototype to provide
  * basic functionality needed by an instanced plugin.
  */
-class Plugin extends Fabric.Scribe {
+class Plugin extends Scribe {
   /**
    * Create an instance of a plugin.
    * @param {Object} config Configuration to be passed to plugin.
@@ -28,10 +29,10 @@ class Plugin extends Fabric.Scribe {
    * @return {Mixed}      Loaded plugin, or `null`.
    */
   static fromName (name) {
-    let disk = new Fabric.Disk();
+    let disk = new Disk();
     let path = `plugins/${name}`;
     let real = `doorman-${name}`;
-    let fallback = `./node_modules/doorman/${path}.js`;
+    let fallback = `./node_modules/@fabric/doorman/${path}.js`;
     let plugin = null;
 
     if (disk.exists(path + '.js') || disk.exists(path)) {
