@@ -1,21 +1,21 @@
 'use strict';
 
+const Fabric = require('@fabric/core');
 const SlackSDK = require('@slack/client');
-const Service = require('../lib/service');
 
-class Slack extends Service {
+class Slack extends Fabric.Service {
   constructor (config) {
     super(config);
+
     this.config = Object.assign({
       store: './data/slack'
     }, config);
-    this.self = null;
+
+    return this;
   }
 
   async connect () {
-    await super.connect();
-
-    this.log('connecting...');
+    this.log('Connecting...');
 
     if (this.config.token) {
       this.slack = new SlackSDK.WebClient(this.config.token);
@@ -34,8 +34,6 @@ class Slack extends Service {
   }
 
   async handler (message) {
-    this.log('[SERVICE:SLACK]', 'message handler handling:', message);
-
     // TODO: include bot messages in state
     if (message.subtype === 'bot_message') return;
     if (!message.user) return this.error('[SERVICE:SLACK]', `received message, but no user:`, message);
@@ -60,33 +58,6 @@ class Slack extends Service {
     });
   }
 
-  async ready () {
-    let service = this;
-
-    if (service.config.mirror) {
-      let users = await service._getUsers();
-      let channels = await service._getChannels();
-
-      for (let id in users) {
-        await service._registerUser(users[id]);
-        await service._getPresence(users[id].id);
-      }
-
-      for (let id in channels) {
-        await service._registerChannel(channels[id]);
-      }
-    }
-
-    let identity = await this.slack.auth.test().catch(service.error);
-
-    service.self = Object.assign({
-      id: identity.user_id
-    }, identity);
-
-    service.log('ready!');
-    service.emit('ready');
-  }
-
   async send (channel, message) {
     this.connection.sendMessage(message, channel);
   }
@@ -101,7 +72,7 @@ class Slack extends Service {
   }
 
   async _registerUser (user) {
-    await super._registerUser(user);
+    await super._registerActor(user);
     this.connection.subscribePresence([user.id]);
     return this;
   }
@@ -118,7 +89,7 @@ class Slack extends Service {
 
     if (result && result.user) {
       await this._registerUser(result.user);
-      user = this._GET(`/users/${id}`);
+      user = this._GET(`/actors/${id}`);
     }
 
     return user;
@@ -129,7 +100,7 @@ class Slack extends Service {
     let channel = null;
 
     try {
-      result = await this.slack.channels.info({ channel: id });
+      result = await this.slack.conversations.info({ channel: id });
     } catch (E) {
       this.error(`Could not get channel "${id}":`, E);
     }
@@ -147,7 +118,7 @@ class Slack extends Service {
 
     if (this.config.mirror) {
       for (let i in result.members) {
-        this._registerUser(result.members[i]);
+        await this._registerUser(result.members[i]);
       }
     }
 
@@ -159,7 +130,7 @@ class Slack extends Service {
 
     if (this.config.mirror) {
       for (let i in result.channels) {
-        this._registerChannel(result.channels[i]);
+        await this._registerChannel(result.channels[i]);
       }
     }
 
@@ -176,19 +147,23 @@ class Slack extends Service {
 
     try {
       channel = await this._getChannel(id);
-      members = channel.members || [];
     } catch (E) {
       console.log('Could not retrieve channel:', E);
+    }
+
+    if (channel) {
+      members = channel.members || [];
     }
 
     return members;
   }
 
   async _getPresence (id) {
+    this.log(`getting presence:`, id);
     let presence = (await this.slack.users.getPresence({
       user: id
     })).presence;
-    this._handlePresenceChange({ user: id, presence: presence });
+    await this._handlePresenceChange({ user: id, presence: presence });
     return presence;
   }
 
@@ -221,6 +196,31 @@ class Slack extends Service {
     await this._updatePresence(event.user, online);
 
     return this;
+  }
+
+  async ready () {
+    let service = this;
+    let identity = await this.slack.auth.test().catch(service.error);
+
+    service.agent = Object.assign({
+      id: identity.user_id
+    }, identity);
+
+    if (service.config.mirror) {
+      let users = await service._getUsers();
+      let channels = await service._getChannels();
+
+      for (let id in users) {
+        await service._registerUser(users[id]);
+        await service._getPresence(users[id].id);
+      }
+
+      for (let id in channels) {
+        await service._registerChannel(channels[id]);
+      }
+    }
+
+    return super.ready();
   }
 }
 

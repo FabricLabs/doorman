@@ -14,21 +14,27 @@ describe('Doorman', function () {
     let doorman = new Doorman();
     let plugin = { 'test': 'Successfully handled!' };
 
-    doorman.use(plugin);
+    async function main () {
+      await doorman.start();
 
+      // manually emit a message...
+      doorman.services.local.emit('message', {
+        id: 'test',
+        actor: 'Alice',
+        target: 'test',
+        object: 'Hello, world!  This is a !test of the message handling flow.'
+      });
+
+      await doorman.stop();
+    }
+
+    doorman.use(plugin);
     doorman.on('response', function (message) {
       assert.equal(message.parent.id, 'local/messages/test');
       assert.equal(message.response, plugin.test);
       done();
     });
 
-    doorman.start();
-
-    doorman.services.local.emit('message', {
-      id: 'test',
-      actor: 'Alice',
-      target: 'test',
-      object: 'Hello, world!  This is a !test of the message handling flow.'
-    });
+    main();
   });
 });
