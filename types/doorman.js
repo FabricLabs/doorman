@@ -14,6 +14,7 @@ const Plugin = require('./plugin');
 // Used to create plugins later on.
 // TODO: refactor & remove
 const util = require('util');
+const merge = require('lodash.merge');
 
 /**
  * General-purpose bot framework.
@@ -29,9 +30,11 @@ class Doorman extends Fabric {
   constructor (config) {
     super(config);
 
-    this.config = Object.assign({
+    this.config = merge({
       path: './stores/doorman',
-      services: ['local'],
+      services: [
+        'local'
+      ],
       trigger: '!'
     }, config);
 
