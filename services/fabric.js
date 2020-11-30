@@ -22,8 +22,25 @@ class FabricService extends Interface {
     return this;
   }
 
+  _handlePeerError (error) {
+    console.error('[SERVICE:FABRIC]', 'Error from Peer:', error);
+  }
+
+  _handlePeerMessage (msg) {
+    console.log('[SERVICE:FABRIC]', 'Message from Peer:', msg);
+  }
+
+  _handlePeerWarning (warning) {
+    console.warn('[SERVICE:FABRIC]', 'Warning from Peer:', warning);
+  }
+
   async start () {
     const self = this;
+
+    self.node.on('error', this._handlePeerError.bind(self));
+    self.node.on('message', this._handlePeerMessage.bind(self));
+    self.node.on('warning', this._handlePeerWarning.bind(self));
+
     const promise = new Promise((resolve, reject) => {
       self.node.start().catch(reject).then(resolve);
     });

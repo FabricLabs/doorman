@@ -94,13 +94,17 @@ class Doorman extends Fabric {
     const self = this;
 
     for (let i in self.config.services) {
-      let name = self.config.services[i].toLowerCase();
-      let service = self.constructor.Service(name);
+      try {
+        let name = self.config.services[i].toLowerCase();
+        let service = self.constructor.Service(name);
 
-      // Register and enable if we have service
-      if (service) {
-        await self.register(service);
-        await self.enable(name);
+        // Register and enable if we have service
+        if (service) {
+          await self.register(service);
+          await self.enable(name);
+        }
+      } catch (exception) {
+        console.error('[DOORMAN:CORE]', exception);
       }
     }
 
