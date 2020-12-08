@@ -1,7 +1,8 @@
-const assert = require('assert');
-const expect = require('chai').expect;
+'use strict';
 
-const Doorman = require('../lib/doorman');
+const assert = require('assert');
+
+const Doorman = require('..');
 const Discord = require('../services/discord');
 
 const EventEmitter = require('events').EventEmitter;

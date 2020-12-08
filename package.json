@@ -1,14 +1,19 @@
 {
-  "name": "doorman",
-  "version": "0.1.1-pre",
+  "name": "@fabric/doorman",
+  "version": "0.2.1",
   "description": "Multi-platform chatbot framework.",
-  "main": "lib/doorman.js",
+  "main": "types/doorman.js",
   "scripts": {
-    "docs": "npm run make:docs && http-server docs/",
-    "make:api": "npm run parse:api && jsdoc lib/ README.md -d docs/",
-    "make:docs": "jsdoc lib README.md -c jsdoc.json -d docs",
-    "parse:api": "jsdoc2md --configure jsdoc.json --files lib/** README.md > API.md",
-    "test": "NODE_ENV=test mocha tests --recursive"
+    "bot": "node scripts/bot.js",
+    "make:api": "npm run parse:api && jsdoc types/ README.md -d docs/",
+    "parse:api": "jsdoc2md --configure jsdoc.json --files types/** README.md > API.md",
+    "docs": "npm run make:docs && ecstatic docs",
+    "start": "node scripts/doorman.js",
+    "test": "NODE_ENV=test mocha tests",
+    "coverage": "NODE_ENV=test nyc npm test",
+    "make:coverage": "npm run coverage && nyc report --reporter html",
+    "make:docs": "jsdoc -c jsdoc.json types README.md -d docs",
+    "review:coverage": "npm run make:coverage && ecstatic reports/coverage"
   },
   "repository": {
     "type": "git",
@@ -37,13 +42,14 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#fabric-core-refactor",
+    "@fabric/core": "FabricLabs/fabric#service-listings",
     "@slack/client": "^4.1.0",
     "discord.js": "^11.4.2",
     "erm": "^0.0.1",
     "fast-json-patch": "^2.0.7",
     "json-pointer": "^0.6.0",
     "level": "^4.0.0",
+    "lodash.merge": "^4.6.2",
     "marked": "^0.3.19",
     "matrix-js-sdk": "^0.10.1",
     "mkdirpsync": "^0.1.0"
@@ -51,15 +57,28 @@
   "devDependencies": {
     "chai": "^4.1.2",
     "codecov": "^3.0.4",
-    "http-server": "^0.11.1",
+    "ecstatic": "^4.1.2",
     "istanbul": "^1.1.0-alpha.1",
     "jsdoc": "FabricLabs/jsdoc",
     "mocha": "^4.0.0",
+    "nyc": "^15.1.0",
     "semistandard": "^11.0.0"
   },
   "semistandard": {
     "ignore": [
-      "/test/"
+      "/tests/"
     ]
+  },
+  "nyc": {
+    "include": [
+      "types",
+      "services"
+    ],
+    "exclude": [
+      "tests",
+      "data"
+    ],
+    "report-dir": "./reports/coverage",
+    "temp-dir": "./reports/nyc"
   }
 }

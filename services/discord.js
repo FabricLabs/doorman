@@ -7,7 +7,7 @@ class Discord extends Fabric.Service {
   constructor (config) {
     super(config);
     this.config = Object.assign({
-      store: './data/discord'
+      store: './stores/discord'
     }, config);
   }
 

@@ -12,6 +12,8 @@ basic functionality needed by an instanced plugin.</p>
 <dt><a href="#Router">Router</a> ⇐ <code>Fabric.Scribe</code></dt>
 <dd><p>Process incoming messages.</p>
 </dd>
+<dt><a href="#Service">Service</a></dt>
+<dd></dd>
 </dl>
 
 <a name="Doorman"></a>
@@ -32,10 +34,15 @@ General-purpose bot framework.
 <a name="new_Doorman_new"></a>
 
 ### new Doorman(config)
+Construct a Doorman.
+
 
 | Param | Type | Description |
 | --- | --- | --- |
-| config | <code>Object</code> | Overall configuration object. |
+| config | <code>Object</code> | Configuration. |
+| config.path | <code>Object</code> | Local path for [Store](Store). |
+| config.services | <code>Array</code> | List of services to enable. |
+| config.trigger | <code>String</code> | Prefix to use as a trigger. |
 
 <a name="Doorman+parse"></a>
 
@@ -76,7 +83,7 @@ Configure Doorman to use a Plugin.
 
 <a name="Doorman+_defineTrigger"></a>
 
-### doorman._defineTrigger(handler) ⇒ [<code>Doorman</code>](#Doorman)
+### doorman.\_defineTrigger(handler) ⇒ [<code>Doorman</code>](#Doorman)
 Register a Trigger.
 
 **Kind**: instance method of [<code>Doorman</code>](#Doorman)  
@@ -96,11 +103,22 @@ basic functionality needed by an instanced plugin.
 **Kind**: global class  
 
 * [Plugin](#Plugin)
+    * [new Plugin(config)](#new_Plugin_new)
     * _instance_
         * [.route(request)](#Plugin+route) ⇒ [<code>Plugin</code>](#Plugin)
         * [.subscribe(channel)](#Plugin+subscribe) ⇒ [<code>Plugin</code>](#Plugin)
     * _static_
         * [.fromName(name)](#Plugin.fromName) ⇒ <code>Mixed</code>
+
+<a name="new_Plugin_new"></a>
+
+### new Plugin(config)
+Create an instance of a plugin.
+
+
+| Param | Type | Description |
+| --- | --- | --- |
+| config | <code>Object</code> | Configuration to be passed to plugin. |
 
 <a name="Plugin+route"></a>
 
@@ -185,4 +203,56 @@ Attaches a new handler to the router.
 | --- | --- | --- |
 | plugin | [<code>Plugin</code>](#Plugin) | Instance of the plugin. |
 | name | <code>Plugin.name</code> | Name of the plugin. |
+
+<a name="Service"></a>
+
+## Service
+**Kind**: global class  
+**Properties**
+
+| Name | Description |
+| --- | --- |
+| map | The "map" is a hashtable of "key" => "value" pairs. |
+
+
+* [Service](#Service)
+    * [new Service(config)](#new_Service_new)
+    * [.handler(message)](#Service+handler) ⇒ [<code>Service</code>](#Service)
+    * [.send(channel, message)](#Service+send) ⇒ [<code>Service</code>](#Service)
+
+<a name="new_Service_new"></a>
+
+### new Service(config)
+Basic API for connecting Doorman to a new service provider.
+
+
+| Param | Type | Description |
+| --- | --- | --- |
+| config | <code>Object</code> | Configuration for this service. |
+
+<a name="Service+handler"></a>
+
+### service.handler(message) ⇒ [<code>Service</code>](#Service)
+Default route handler for an incoming message.  Follows the Activity Streams
+2.0 spec: https://www.w3.org/TR/activitystreams-core/
+
+**Kind**: instance method of [<code>Service</code>](#Service)  
+**Returns**: [<code>Service</code>](#Service) - Chainable method.  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| message | <code>Object</code> | Message object. |
+
+<a name="Service+send"></a>
+
+### service.send(channel, message) ⇒ [<code>Service</code>](#Service)
+Send a message to a channel.
+
+**Kind**: instance method of [<code>Service</code>](#Service)  
+**Returns**: [<code>Service</code>](#Service) - Chainable method.  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| channel | <code>String</code> | Channel name to which the message will be sent. |
+| message | <code>String</code> | Content of the message to send. |
 
