@@ -43,7 +43,7 @@ Service.prototype.connect = function initialize () {
 };
 
 Service.prototype.ready = function ready () {
-  this.emit('ready');
+  this.emit('ready', { name: this.config.name });
 };
 
 /**
@@ -106,7 +106,7 @@ Service.prototype._getPresence = async function getPresence (id) {
 };
 
 Service.prototype.start = async function start () {
-  this.emit('ready', { name: this.config.name });
+  this.ready();
 }
 
 module.exports = Service;
