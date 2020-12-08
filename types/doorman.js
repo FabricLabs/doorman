@@ -22,10 +22,10 @@ const merge = require('lodash.merge');
 class Doorman extends Fabric {
   /**
    * Construct a Doorman.
-   * @param {Object} config Configuration.
-   * @param {Object} config.path Local path for {@link Store}.
-   * @param {Array} config.services List of services to enable.
-   * @param {String} config.trigger Prefix to use as a trigger.
+   * @param {Object} [config] Configuration.
+   * @param {Object} [config.path] Local path for {@link Store}.
+   * @param {Array} [config.services] List of services to enable.
+   * @param {String} [config.trigger] Prefix to use as a trigger.
    */
   constructor (config) {
     super(config);
@@ -33,7 +33,8 @@ class Doorman extends Fabric {
     this.config = merge({
       path: './stores/doorman',
       services: [
-        'local'
+        'local',
+        'fabric'
       ],
       trigger: '!'
     }, config);

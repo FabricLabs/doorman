@@ -11,7 +11,9 @@
     "start": "node scripts/doorman.js",
     "test": "NODE_ENV=test mocha tests",
     "coverage": "NODE_ENV=test nyc npm test",
-    "make:docs": "jsdoc -c jsdoc.json types README.md -d docs"
+    "make:coverage": "npm run coverage && nyc report --reporter html",
+    "make:docs": "jsdoc -c jsdoc.json types README.md -d docs",
+    "review:coverage": "npm run make:coverage && ecstatic reports/coverage"
   },
   "repository": {
     "type": "git",
@@ -59,6 +61,7 @@
     "istanbul": "^1.1.0-alpha.1",
     "jsdoc": "FabricLabs/jsdoc",
     "mocha": "^4.0.0",
+    "nyc": "^15.1.0",
     "semistandard": "^11.0.0"
   },
   "semistandard": {
@@ -70,6 +73,12 @@
     "include": [
       "types",
       "services"
-    ]
+    ],
+    "exclude": [
+      "tests",
+      "data"
+    ],
+    "report-dir": "./reports/coverage",
+    "temp-dir": "./reports/nyc"
   }
 }
