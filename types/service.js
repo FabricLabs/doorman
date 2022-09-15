@@ -105,4 +105,8 @@ Service.prototype._getPresence = async function getPresence (id) {
   return member.presence || null;
 };
 
+Service.prototype.start = async function start () {
+  this.emit('ready', { name: this.config.name });
+}
+
 module.exports = Service;

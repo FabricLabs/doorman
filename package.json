@@ -1,13 +1,19 @@
 {
-  "name": "doorman",
-  "version": "0.1.0",
+  "name": "@fabric/doorman",
+  "version": "0.2.1",
   "description": "Multi-platform chatbot framework.",
   "main": "services/doorman.js",
   "scripts": {
+    "bot": "node scripts/bot.js",
+    "coverage": "NODE_ENV=test c8 npm test",
+    "make:docs": "jsdoc -c jsdoc.json types README.md -d docs",
     "start": "node scripts/node.js",
-    "test": "NODE_ENV=test mocha --recursive tests",
-    "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive",
-    "make:docs": "jsdoc lib README.md -d docs"
+    "test": "NODE_ENV=test mocha tests",
+    "make:api": "npm run parse:api && jsdoc types/ README.md -d docs/",
+    "make:coverage": "npm run coverage && c8 report --reporter html",
+    "make:docs": "jsdoc lib README.md -d docs",
+    "parse:api": "jsdoc2md --configure jsdoc.json --files types/** README.md > API.md",
+    "review:coverage": "npm run make:coverage && ecstatic reports/coverage"
   },
   "repository": {
     "type": "git",
@@ -27,8 +33,8 @@
   ],
   "author": "Fabric Labs <labs@fabric.pub> (https://labs.fabric.pub)",
   "contributors": [
-    "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)",
-    "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)"
+    "Eric Martindale <eric@ericmartindale.com> (https://www.ericmartindale.com)",
+    "Nate Richardson <hello@naterichardson.com> (https://naterichardson.com)"
   ],
   "license": "MIT",
   "bugs": {
@@ -38,22 +44,41 @@
   "dependencies": {
     "@fabric/core": "github:FabricLabs/fabric#feature/lightning",
     "@slack/client": "^4.1.0",
-    "discord.js": "^11.3.2",
+    "discord.js": "^11.4.2",
     "erm": "^0.0.1",
+    "fast-json-patch": "^2.0.7",
+    "json-pointer": "^0.6.0",
+    "level": "^4.0.0",
+    "lodash.merge": "^4.6.2",
     "marked": "^0.3.19",
-    "matrix-js-sdk": "^0.10.1"
+    "matrix-js-sdk": "^0.10.1",
+    "mkdirpsync": "^0.1.0"
   },
   "devDependencies": {
     "chai": "^4.1.2",
-    "coveralls": "^3.0.0",
+    "codecov": "^3.0.4",
+    "ecstatic": "^4.1.2",
     "istanbul": "^1.1.0-alpha.1",
-    "jsdoc": "^3.5.5",
+    "jsdoc": "FabricLabs/jsdoc",
     "mocha": "^4.0.0",
+    "nyc": "^15.1.0",
     "semistandard": "^11.0.0"
   },
   "semistandard": {
     "ignore": [
-      "/test/"
+      "/tests/"
     ]
+  },
+  "nyc": {
+    "include": [
+      "types",
+      "services"
+    ],
+    "exclude": [
+      "tests",
+      "data"
+    ],
+    "report-dir": "./reports/coverage",
+    "temp-dir": "./reports/nyc"
   }
 }
