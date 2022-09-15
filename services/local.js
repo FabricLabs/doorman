@@ -1,7 +1,7 @@
 'use strict';
 
 const util = require('util');
-const Service = require('../lib/service');
+const Service = require('@fabric/core/types/service');
 
 function Local (config) {
   this.config = config || {};

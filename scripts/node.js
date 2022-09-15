@@ -1,7 +1,7 @@
 'use strict';
 
-const settings = require('./settings/local');
-const Doorman = require('./services/doorman');
+const settings = require('../settings/local');
+const Doorman = require('../services/doorman');
 
 async function main () {
   const doorman = new Doorman(settings);

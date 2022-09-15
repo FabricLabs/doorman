@@ -2,10 +2,10 @@
   "name": "doorman",
   "version": "0.1.0",
   "description": "Multi-platform chatbot framework.",
-  "main": "lib/doorman.js",
+  "main": "services/doorman.js",
   "scripts": {
-    "start": "node doorman.js",
-    "test": "NODE_ENV=test mocha --recursive",
+    "start": "node scripts/node.js",
+    "test": "NODE_ENV=test mocha --recursive tests",
     "coverage": "NODE_ENV=test istanbul cover _mocha -- --recursive",
     "make:docs": "jsdoc lib README.md -d docs"
   },
@@ -36,6 +36,7 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
+    "@fabric/core": "github:FabricLabs/fabric#feature/lightning",
     "@slack/client": "^4.1.0",
     "discord.js": "^11.3.2",
     "erm": "^0.0.1",

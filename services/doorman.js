@@ -3,9 +3,11 @@
 const util = require('util');
 const crypto = require('crypto');
 
-const Plugin = require('./plugin');
-const Router = require('./router');
-const Scribe = require('./scribe');
+const Plugin = require('../types/plugin');
+const Router = require('../types/router');
+const Scribe = require('../types/scribe');
+
+const Service = require('@fabric/core/types/service');
 
 /**
  * General-purpose bot framework.
@@ -31,7 +33,7 @@ function Doorman (config) {
   return self;
 }
 
-util.inherits(Doorman, require('events').EventEmitter);
+util.inherits(Doorman, Service);
 
 Doorman.prototype.start = function configure () {
   let self = this;

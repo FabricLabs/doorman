@@ -2,7 +2,7 @@
 
 const util = require('util');
 const Disk = require('./disk');
-const Service = require('../lib/service');
+const Service = require('./service');
 
 /**
  * Plugins are the developer-facing component of Doorman.  Used to configure
