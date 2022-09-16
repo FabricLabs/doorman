@@ -17,13 +17,18 @@ class Plugin extends Service {
    */
   constructor (doorman) {
     super(doorman);
+
+    this.config = Object.assign({
+      store: './data/unconfigured-plugin'
+    }, doorman);
+
     return this;
   }
 
   /**
-  * Static method for loading a plugin from disk.
-  * @param  {String} name Name of the plugin to load.
-  * @return {Mixed}      Loaded plugin, or `null`.
+   * Static method for loading a plugin from disk.
+   * @param  {String} name Name of the plugin to load.
+   * @return {Mixed}      Loaded plugin, or `null`.
   */
   static fromName (name) {
     let disk = new Disk();
@@ -63,10 +68,10 @@ class Plugin extends Service {
   }
 
   /**
-  * Route a request to its appropriate handler.
-  * @param  {Mixed} request Temporarily mixed type.
-  * @return {Plugin}         Chainable method.
-  */
+   * Route a request to its appropriate handler.
+   * @param  {Mixed} request Temporarily mixed type.
+   * @return {Plugin}         Chainable method.
+   */
   route (request) {
     this.emit('request', request);
     return this;
