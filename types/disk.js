@@ -1,10 +1,17 @@
 'use strict';
 
 const fs = require('fs');
+const Service = require('@fabric/core/types/service');
 
-function Disk (root) {
-  this.type = 'Disk';
-  this.root = root || process.env.PWD;
+class Disk extends Service {
+  constructor (settings = {}) {
+    super(settings);
+
+    this.type = 'Disk';
+    this.root = root || process.env.PWD;
+
+    return this;
+  }
 }
 
 Disk.prototype.exists = function (path) {
