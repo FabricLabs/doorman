@@ -14,23 +14,25 @@ const Service = require('@fabric/core/types/service');
  * @param       {Object} config Overall configuration object.
  * @constructor
  */
-function Doorman (config) {
-  let self = this;
+class Doorman extends Service {
+  constructor (config = {}) {
+    super(config);
 
-  self.config = Object.assign({
-    trigger: '!'
-  }, config || {});
+    this.config = Object.assign({
+      trigger: '!'
+    }, config || {});
 
-  self.plugins = {};
-  self.services = {};
-  self.triggers = {};
+    this.plugins = {};
+    this.services = {};
+    this.triggers = {};
 
-  self.router = new Router({ trigger: self.config.trigger });
-  self.scribe = new Scribe({ namespace: 'doorman' });
+    this.router = new Router({ trigger: this.config.trigger });
+    this.scribe = new Scribe({ namespace: 'doorman' });
 
-  self.router.trust(self);
+    this.router.trust(this);
 
-  return self;
+    return this;
+  }
 }
 
 util.inherits(Doorman, Service);

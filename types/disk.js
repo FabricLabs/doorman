@@ -8,20 +8,20 @@ class Disk extends Service {
     super(settings);
 
     this.type = 'Disk';
-    this.root = root || process.env.PWD;
+    this.root = settings || process.env.PWD;
 
     return this;
   }
+
+  exists (path) {
+    const full = [this.root, path].join('/');
+    return fs.existsSync(full);
+  }
+
+  get (path) {
+    const full = [this.root, path].join('/');
+    return require(full);
+  }
 }
-
-Disk.prototype.exists = function (path) {
-  let full = [this.root, path].join('/');
-  return fs.existsSync(full);
-};
-
-Disk.prototype.get = function (path) {
-  let full = [this.root, path].join('/');
-  return require(full);
-};
 
 module.exports = Disk;
