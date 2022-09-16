@@ -29,7 +29,7 @@ class Plugin extends Service {
    * Static method for loading a plugin from disk.
    * @param  {String} name Name of the plugin to load.
    * @return {Mixed}      Loaded plugin, or `null`.
-  */
+   */
   static fromName (name) {
     let disk = new Disk();
     let path = `plugins/${name}`;
@@ -78,18 +78,18 @@ class Plugin extends Service {
   }
 
   /**
-  * Start the plugin.  This method is generally overridden by the child.
-  * @return {Plugin} Chainable method.
-  */
+   * Start the plugin.  This method is generally overridden by the child.
+   * @return {Plugin} Chainable method.
+   */
   start () {
     return this;
   }
 
   /**
-  * Attach the router to a particular message channel.
-  * @param  {String} channel Name of channel.
-  * @return {Plugin}         Chainable method.
-  */
+   * Attach the router to a particular message channel.
+   * @param  {String} channel Name of channel.
+   * @return {Plugin}         Chainable method.
+   */
   subscribe (channel) {
     if (!this.fabric) return new Error('No Fabric instance supplied.  Failing.');
     this.fabric.on(channel, this.route.bind(this));

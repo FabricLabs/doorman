@@ -8,16 +8,20 @@ const Service = require('@fabric/core/types/service');
  * @constructor
  */
 class Router extends Service {
+  /**
+   * Maintains a list of triggers ("commands") and their behaviors.
+   * @param       {Object} map Map of command names => behaviors.
+   */
   constructor (config = {}) {
     this.config = config || {};
     this.handlers = {};
   }
 
   /**
-  * Assembles an array of responses to the triggers contained in a particular message.
-  * @param  {String} msg Input message to route.
-  * @return {Array}     List of outputs generated from the input string.
-  */
+   * Assembles an array of responses to the triggers contained in a particular message.
+   * @param  {String} msg Input message to route.
+   * @return {Array}     List of outputs generated from the input string.
+   */
   route (msg) {
     if (!msg.actor || !msg.object || !msg.target) return null;
     if (typeof msg.object !== 'string') return null;
@@ -57,11 +61,11 @@ class Router extends Service {
   }
 
   /**
-  * Attaches a new handler to the router.
-  * @param  {Plugin} plugin Instance of the plugin.
-  * @param  {Plugin.name} name Name of the plugin.
-  * @return {Router}        Configured instance of the router.
-  */
+   * Attaches a new handler to the router.
+   * @param  {Plugin} plugin Instance of the plugin.
+   * @param  {Plugin.name} name Name of the plugin.
+   * @return {Router}        Configured instance of the router.
+   */
   use (plugin) {
     this.handlers[plugin.name] = plugin;
     return this;
