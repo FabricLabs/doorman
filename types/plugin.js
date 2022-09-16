@@ -11,6 +11,10 @@ const Service = require('./service');
  * @constructor
  */
 class Plugin extends Service {
+  /**
+   * Create an instance of a plugin.
+   * @param {Object} config Configuration to be passed to plugin.
+   */
   constructor (doorman) {
     super(doorman);
     return this;
