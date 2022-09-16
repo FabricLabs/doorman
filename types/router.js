@@ -13,8 +13,10 @@ class Router extends Service {
    * @param       {Object} map Map of command names => behaviors.
    */
   constructor (config = {}) {
+    super(config);
     this.config = config || {};
     this.handlers = {};
+    return this;
   }
 
   /**
@@ -22,7 +24,7 @@ class Router extends Service {
    * @param  {String} msg Input message to route.
    * @return {Array}     List of outputs generated from the input string.
    */
-  route (msg) {
+  async route (msg) {
     if (!msg.actor || !msg.object || !msg.target) return null;
     if (typeof msg.object !== 'string') return null;
     let output = [];

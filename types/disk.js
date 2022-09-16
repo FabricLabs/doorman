@@ -7,7 +7,11 @@ class Disk extends Service {
   constructor (settings = {}) {
     super(settings);
 
-    this.type = 'Disk';
+    this.settings = Object.assign({
+      type: 'Disk'
+    }, settings);
+
+    // this.type = 'Disk';
     this.root = settings || process.env.PWD;
 
     return this;
@@ -18,7 +22,7 @@ class Disk extends Service {
     return fs.existsSync(full);
   }
 
-  get (path) {
+  _get (path) {
     const full = [this.root, path].join('/');
     return require(full);
   }

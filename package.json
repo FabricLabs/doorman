@@ -6,12 +6,11 @@
   "scripts": {
     "bot": "node scripts/bot.js",
     "coverage": "NODE_ENV=test c8 npm test",
-    "make:docs": "jsdoc -c jsdoc.json types README.md -d docs",
+    "make:docs": "jsdoc types README.md -d docs",
     "start": "node scripts/node.js",
     "test": "NODE_ENV=test mocha tests",
     "make:api": "npm run parse:api && jsdoc types/ README.md -d docs/",
     "make:coverage": "npm run coverage && c8 report --reporter html",
-    "make:docs": "jsdoc types README.md -d docs",
     "parse:api": "jsdoc2md --configure jsdoc.json --files types/** README.md > API.md",
     "review:coverage": "npm run make:coverage && ecstatic reports/coverage"
   },
@@ -43,16 +42,12 @@
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#feature/lightning",
-    "discord.js": "11.4.2",
-    "erm": "0.0.1",
-    "fast-json-patch": "2.0.7",
-    "json-pointer": "0.6.0",
-    "level": "4.0.0",
-    "lodash.merge": "4.6.2",
-    "marked": "0.3.19",
-    "mkdirpsync": "0.1.0"
+    "@slack/client": "^5.0.2",
+    "discord.js": "^14.3.0",
+    "matrix-js-sdk": "^19.5.0"
   },
   "devDependencies": {
+    "chai": "^4.3.6",
     "jsdoc": "FabricLabs/jsdoc",
     "mocha": "10.0.0",
     "semistandard": "11.0.0"

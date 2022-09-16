@@ -220,7 +220,7 @@ class Doorman extends Service {
   }
 
   parse (msg) {
-    let answers = await this.router.route(msg);
+    let answers = this.router.route(msg);
     let message = null;
 
     if (answers.length) {
