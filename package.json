@@ -1,6 +1,6 @@
 {
   "name": "@fabric/doorman",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Multi-platform chatbot framework.",
   "main": "services/doorman.js",
   "scripts": {

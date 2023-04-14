@@ -28,7 +28,7 @@ class Interface extends Site {
         <fabric-card class="ui card">
           <fabric-card-content class="content">
             <p>Waiting...</p>
-          </fabric>
+          </fabric-card-content>
         </fabric-card>
       </${this.handle}>
     `;
