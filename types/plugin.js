@@ -1,24 +1,26 @@
 'use strict';
 
-const Scribe = require('@fabric/core/types/scribe');
+const util = require('util');
 const Disk = require('./disk');
+const Service = require('./service');
 
 /**
  * Plugins are the developer-facing component of Doorman.  Used to configure
  * behavior by consumers, developers can rely on the Plugin prototype to provide
  * basic functionality needed by an instanced plugin.
+ * @constructor
  */
-class Plugin extends Scribe {
+class Plugin extends Service {
   /**
    * Create an instance of a plugin.
    * @param {Object} config Configuration to be passed to plugin.
    */
-  constructor (config) {
-    super(config);
+  constructor (doorman) {
+    super(doorman);
 
     this.config = Object.assign({
       store: './data/unconfigured-plugin'
-    }, config);
+    }, doorman);
 
     return this;
   }
@@ -32,7 +34,7 @@ class Plugin extends Scribe {
     let disk = new Disk();
     let path = `plugins/${name}`;
     let real = `doorman-${name}`;
-    let fallback = `./node_modules/@fabric/doorman/${path}.js`;
+    let fallback = `./node_modules/doorman/${path}.js`;
     let plugin = null;
 
     if (disk.exists(path + '.js') || disk.exists(path)) {
@@ -76,6 +78,14 @@ class Plugin extends Scribe {
   }
 
   /**
+   * Start the plugin.  This method is generally overridden by the child.
+   * @return {Plugin} Chainable method.
+   */
+  start () {
+    return this;
+  }
+
+  /**
    * Attach the router to a particular message channel.
    * @param  {String} channel Name of channel.
    * @return {Plugin}         Chainable method.
@@ -85,6 +95,6 @@ class Plugin extends Scribe {
     this.fabric.on(channel, this.route.bind(this));
     return this;
   }
-}
+} 
 
 module.exports = Plugin;

@@ -1,9 +1,8 @@
-'use strict';
-
-const settings = require('../settings/default');
 const assert = require('assert');
+const expect = require('chai').expect;
 
-const Doorman = require('..');
+const Doorman = require('../services/doorman');
+
 const EventEmitter = require('events').EventEmitter;
 
 describe('Doorman', function () {
@@ -12,29 +11,25 @@ describe('Doorman', function () {
   });
 
   it('can handle a message', function (done) {
-    async function test () {
-      let doorman = new Doorman();
-      let source = new EventEmitter();
-      let sample = { 'test': 'Successfully handled!' };
+    let doorman = new Doorman();
+    let source = new EventEmitter();
+    let sample = { 'test': 'Successfully handled!' };
 
-      await doorman.use(sample);
+    doorman.use(sample);
 
-      doorman.on('response', function (message) {
-        assert.equal(message.parent.id, 'local/messages/test');
-        assert.equal(message.response, sample.test);
-        done();
-      });
-  
-      await doorman.start();
-  
-      doorman.services.local.emit('message', {
-        id: 'test',
-        actor: 'Alice',
-        target: 'test',
-        object: 'Hello, world!  This is a !test of the message handling flow.'
-      });
-    }
+    doorman.on('response', function (message) {
+      assert.equal(message.parent.id, 'local/messages/test');
+      assert.equal(message.response, sample.test);
+      done();
+    });
 
-    test();
+    doorman.start();
+
+    doorman.services.local.emit('message', {
+      id: 'test',
+      actor: 'Alice',
+      target: 'test',
+      object: 'Hello, world!  This is a !test of the message handling flow.'
+    });
   });
 });

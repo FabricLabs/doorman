@@ -1,20 +1,29 @@
 'use strict';
 
 const fs = require('fs');
+const Service = require('@fabric/core/types/service');
 
-class Disk {
-  constructor (root) {
-    this.type = 'Disk';
-    this.root = root || process.env.PWD;
+class Disk extends Service {
+  constructor (settings = {}) {
+    super(settings);
+
+    this.settings = Object.assign({
+      type: 'Disk'
+    }, settings);
+
+    // this.type = 'Disk';
+    this.root = settings || process.env.PWD;
+
+    return this;
   }
 
   exists (path) {
-    let full = [this.root, path].join('/');
+    const full = [this.root, path].join('/');
     return fs.existsSync(full);
   }
 
-  get (path) {
-    let full = [this.root, path].join('/');
+  _get (path) {
+    const full = [this.root, path].join('/');
     return require(full);
   }
 }

@@ -11,7 +11,7 @@ describe('Service', function () {
     assert(Service instanceof Function);
   });
 
-  it('can handle a message', function (done) {
+  it('can start smoothly', function (done) {
     async function test () {
       let service = new Service();
       let sample = { 'test': 'Successfully handled!' };
