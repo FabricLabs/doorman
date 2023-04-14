@@ -8,6 +8,7 @@ const Router = require('../types/router');
 const Scribe = require('../types/scribe');
 
 const Service = require('@fabric/core/types/service');
+const HTTPServer = require('@fabric/http/types/server');
 
 /**
  * General-purpose bot framework.
@@ -22,12 +23,22 @@ class Doorman extends Service {
       trigger: '!'
     }, config || {});
 
+    this.settings = Object.assign({
+      http: {
+        hostname: 'localhost',
+        interface: '0.0.0.0',
+        port: 4444
+      }
+    }, this.config, config);
+
     this.plugins = {};
     this.services = {};
     this.triggers = {};
 
     this.router = new Router({ trigger: this.config.trigger });
     this.scribe = new Scribe({ namespace: 'doorman' });
+
+    this.http = new HTTPServer(this.settings.http)
 
     this.router.trust(this);
 
@@ -46,40 +57,40 @@ class Doorman extends Service {
     return this;
   }
 
-  start () {
-    let self = this;
+  async start () {
+    this.enable('local');
 
-    self.enable('local');
-
-    if (self.config.services && Array.isArray(self.config.services)) {
-      self.config.services.forEach(service => self.enable(service));
+    if (this.config.services && Array.isArray(this.config.services)) {
+      this.config.services.forEach(service => this.enable(service));
     }
 
-    if (self.config.plugins && Array.isArray(self.config.plugins)) {
-      self.config.plugins.forEach(module => self.use(module));
+    if (this.config.plugins && Array.isArray(this.config.plugins)) {
+      this.config.plugins.forEach(module => this.use(module));
     }
 
-    if (self.config.triggers) {
-      Object.keys(self.config.triggers).forEach(name => {
+    if (this.config.triggers) {
+      Object.keys(this.config.triggers).forEach(name => {
         let route = {
-          name: self.config.trigger + name,
-          value: self.config.triggers[name]
+          name: this.config.trigger + name,
+          value: this.config.triggers[name]
         };
 
-        self.router.use(route);
+        this.router.use(route);
       });
     }
 
-    self.register({
+    await this.http.start();
+
+    this.register({
       name: 'help',
-      value: `Available triggers: ${Object.keys(self.triggers).map(x => '`' + self.config.trigger + x + '`').join(', ')}`
+      value: `Available triggers: ${Object.keys(this.triggers).map(x => '`' + this.config.trigger + x + '`').join(', ')}`
     });
 
-    if (self.config.debug) {
-      this.scribe.log('[DEBUG]', 'triggers:', Object.keys(self.triggers));
+    if (this.config.debug) {
+      this.scribe.log('[DEBUG]', 'triggers:', Object.keys(this.triggers));
     }
 
-    self.emit('ready');
+    this.emit('ready');
 
     this.scribe.log('started!');
 
