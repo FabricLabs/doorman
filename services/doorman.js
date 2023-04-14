@@ -27,7 +27,10 @@ class Doorman extends Service {
       http: {
         hostname: 'localhost',
         interface: '0.0.0.0',
-        port: 4444
+        port: 4444,
+        resources: {
+          'Provider': {}
+        }
       }
     }, this.config, config);
 
