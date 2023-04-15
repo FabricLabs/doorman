@@ -60,46 +60,6 @@ class Doorman extends Service {
     return this;
   }
 
-  async start () {
-    this.enable('local');
-
-    if (this.config.services && Array.isArray(this.config.services)) {
-      this.config.services.forEach(service => this.enable(service));
-    }
-
-    if (this.config.plugins && Array.isArray(this.config.plugins)) {
-      this.config.plugins.forEach(module => this.use(module));
-    }
-
-    if (this.config.triggers) {
-      Object.keys(this.config.triggers).forEach(name => {
-        let route = {
-          name: this.config.trigger + name,
-          value: this.config.triggers[name]
-        };
-
-        this.router.use(route);
-      });
-    }
-
-    await this.http.start();
-
-    this.register({
-      name: 'help',
-      value: `Available triggers: ${Object.keys(this.triggers).map(x => '`' + this.config.trigger + x + '`').join(', ')}`
-    });
-
-    if (this.config.debug) {
-      this.scribe.log('[DEBUG]', 'triggers:', Object.keys(this.triggers));
-    }
-
-    this.emit('ready');
-
-    this.scribe.log('started!');
-
-    return this;
-  }
-
   enable (name) {
     let self = this;
 
@@ -256,6 +216,50 @@ class Doorman extends Service {
       let result = this.services[id].join(channel);
       console.log(`service ${id} join: ${result}`);
     }
+  }
+
+  async start () {
+    this.enable('local');
+
+    if (this.config.services && Array.isArray(this.config.services)) {
+      this.config.services.forEach(service => this.enable(service));
+    }
+
+    if (this.config.plugins && Array.isArray(this.config.plugins)) {
+      this.config.plugins.forEach(module => this.use(module));
+    }
+
+    if (this.config.triggers) {
+      Object.keys(this.config.triggers).forEach(name => {
+        let route = {
+          name: this.config.trigger + name,
+          value: this.config.triggers[name]
+        };
+
+        this.router.use(route);
+      });
+    }
+
+    await this.http.start();
+
+    this.register({
+      name: 'help',
+      value: `Available triggers: ${Object.keys(this.triggers).map(x => '`' + this.config.trigger + x + '`').join(', ')}`
+    });
+
+    if (this.config.debug) {
+      this.scribe.log('[DEBUG]', 'triggers:', Object.keys(this.triggers));
+    }
+
+    this.emit('ready');
+
+    this.scribe.log('started!');
+
+    return this;
+  }
+
+  async stop () {
+    await this.http.stop();
   }
 }
 
