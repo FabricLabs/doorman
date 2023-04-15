@@ -13,6 +13,7 @@
     "make:api": "npm run parse:api && jsdoc types/ README.md -d docs/",
     "make:coverage": "npm run coverage && c8 report --reporter html",
     "parse:api": "jsdoc2md --configure jsdoc.json --files types/** README.md > API.md",
+    "report:coverage": "npm run make:coverage && c8 report --reporter=text-lcov > reports/coverage.lcov",
     "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
     "review:coverage": "npm run make:coverage && ecstatic reports/coverage"
   },

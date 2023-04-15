@@ -21,7 +21,7 @@ class Interface extends Site {
 
   _getHTML () {
     return `
-      <${this.handle}>
+      <${this.settings.handle}>
         <fabric-header>
           <h1><code>@fabric/doorman</code></h1>
         </fabric-header>
@@ -30,7 +30,7 @@ class Interface extends Site {
             <p>Waiting...</p>
           </fabric-card-content>
         </fabric-card>
-      </${this.handle}>
+      </${this.settings.handle}>
     `;
   }
 }
