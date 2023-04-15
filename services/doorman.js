@@ -8,6 +8,7 @@ const Router = require('../types/router');
 const Scribe = require('../types/scribe');
 
 const Service = require('@fabric/core/types/service');
+const HTTPServer = require('@fabric/http/types/server');
 
 /**
  * General-purpose bot framework.
@@ -22,12 +23,25 @@ class Doorman extends Service {
       trigger: '!'
     }, config || {});
 
+    this.settings = Object.assign({
+      http: {
+        hostname: 'localhost',
+        interface: '0.0.0.0',
+        port: 4444,
+        resources: {
+          'Provider': {}
+        }
+      }
+    }, this.config, config);
+
     this.plugins = {};
     this.services = {};
     this.triggers = {};
 
     this.router = new Router({ trigger: this.config.trigger });
     this.scribe = new Scribe({ namespace: 'doorman' });
+
+    this.http = new HTTPServer(this.settings.http)
 
     this.router.trust(this);
 
@@ -42,46 +56,6 @@ class Doorman extends Service {
     this.router.use(handler);
 
     this.emit('trigger', handler);
-
-    return this;
-  }
-
-  start () {
-    let self = this;
-
-    self.enable('local');
-
-    if (self.config.services && Array.isArray(self.config.services)) {
-      self.config.services.forEach(service => self.enable(service));
-    }
-
-    if (self.config.plugins && Array.isArray(self.config.plugins)) {
-      self.config.plugins.forEach(module => self.use(module));
-    }
-
-    if (self.config.triggers) {
-      Object.keys(self.config.triggers).forEach(name => {
-        let route = {
-          name: self.config.trigger + name,
-          value: self.config.triggers[name]
-        };
-
-        self.router.use(route);
-      });
-    }
-
-    self.register({
-      name: 'help',
-      value: `Available triggers: ${Object.keys(self.triggers).map(x => '`' + self.config.trigger + x + '`').join(', ')}`
-    });
-
-    if (self.config.debug) {
-      this.scribe.log('[DEBUG]', 'triggers:', Object.keys(self.triggers));
-    }
-
-    self.emit('ready');
-
-    this.scribe.log('started!');
 
     return this;
   }
@@ -242,6 +216,50 @@ class Doorman extends Service {
       let result = this.services[id].join(channel);
       console.log(`service ${id} join: ${result}`);
     }
+  }
+
+  async start () {
+    this.enable('local');
+
+    if (this.config.services && Array.isArray(this.config.services)) {
+      this.config.services.forEach(service => this.enable(service));
+    }
+
+    if (this.config.plugins && Array.isArray(this.config.plugins)) {
+      this.config.plugins.forEach(module => this.use(module));
+    }
+
+    if (this.config.triggers) {
+      Object.keys(this.config.triggers).forEach(name => {
+        let route = {
+          name: this.config.trigger + name,
+          value: this.config.triggers[name]
+        };
+
+        this.router.use(route);
+      });
+    }
+
+    await this.http.start();
+
+    this.register({
+      name: 'help',
+      value: `Available triggers: ${Object.keys(this.triggers).map(x => '`' + this.config.trigger + x + '`').join(', ')}`
+    });
+
+    if (this.config.debug) {
+      this.scribe.log('[DEBUG]', 'triggers:', Object.keys(this.triggers));
+    }
+
+    this.emit('ready');
+
+    this.scribe.log('started!');
+
+    return this;
+  }
+
+  async stop () {
+    await this.http.stop();
   }
 }
 

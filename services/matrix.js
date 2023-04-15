@@ -1,14 +1,14 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
-
+// Dependencies
 const matrix = require('matrix-js-sdk');
 const pointer = require('json-pointer');
-
 const markdown = require('marked');
-const Service = require('../types/service');
 
-class Matrix extends Fabric.Service {
+// Fabric Types
+const Service = require('@fabric/core/types/service');
+
+class Matrix extends Service {
   constructor (config) {
     super(config);
 
@@ -40,12 +40,12 @@ class Matrix extends Fabric.Service {
   async connect () {
     this.log('Connecting...');
 
-    try {
+    /* try {
       let prior = await this.store.get('/');
       this.state = JSON.parse(prior);
     } catch (E) {
       console.error('Could not restore state:', E);
-    }
+    } */
 
     if (this.config.token) {
       this.connection = matrix.createClient({
