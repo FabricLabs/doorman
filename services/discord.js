@@ -68,11 +68,39 @@ class Discord extends Service {
     this._bound = false;
   }
 
+  /**
+   * Best display name for a Discord user from what the client already caches
+   * (guild member nickname, global name, username, then the stored catalog).
+   * @param {string} userId
+   * @param {string} [guildId]
+   * @returns {string|null}
+   */
+  displayName (userId, guildId) {
+    const discord = this.client && this.client.client;
+    const guilds = discord && discord.guilds && discord.guilds.cache;
+    const guild = guilds && guildId ? guilds.get(guildId) : null;
+    const member = guild && guild.members && guild.members.cache ? guild.members.cache.get(userId) : null;
+    const user = (member && member.user) || (discord && discord.users && discord.users.cache ? discord.users.cache.get(userId) : null);
+    const stored = this.client && this.client._state && this.client._state.content && this.client._state.content.users
+      ? this.client._state.content.users[userId]
+      : null;
+    const name = (member && (member.nickname || member.displayName)) ||
+      (user && (user.globalName || user.username)) ||
+      (stored && (stored.displayName || stored.username));
+    return name ? String(name) : null;
+  }
+
+  _announceUser (userId, guildId) {
+    const name = this.displayName(userId, guildId);
+    if (name) this.emit('user', { id: userId, name });
+  }
+
   _handleReady () {
     this.isReady = true;
     const active = (this.client && this.client.voice && this.client.voice.active) || {};
     for (const [channelId, record] of Object.entries(active)) {
       for (const user of Object.keys((record && record.members) || {})) {
+        this._announceUser(user, record && record.guildId);
         this.emit('presence', { user, status: 'online', channel: channelId });
       }
     }
@@ -103,6 +131,7 @@ class Discord extends Service {
     if (from === to) return;
     if (from) this.emit('part', { user, channel: from });
     if (to) {
+      this._announceUser(user, event.guildId ? String(event.guildId) : null);
       this.emit('join', { user, channel: to });
       this.emit('presence', { user, status: 'online', channel: to });
     } else {
