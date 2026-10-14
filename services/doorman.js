@@ -81,6 +81,7 @@ class Doorman extends Service {
 
     this.plugins = {};
     this.services = {};
+    this._serviceListeners = {};
     this.triggers = {};
     this._triggerOwners = {};
 
@@ -103,7 +104,8 @@ class Doorman extends Service {
       this.settings.http = Object.assign({
         name: this.settings.name || '@fabric/doorman',
         hostname: 'localhost',
-        interface: '0.0.0.0',
+        // Unauthenticated read-only console: loopback unless the operator opts in.
+        interface: '127.0.0.1',
         port: 4444,
         assets: defaultAssetsPath(),
         spaFallback: true,
@@ -304,14 +306,19 @@ class Doorman extends Service {
 
     const userId = (id) => [name, 'users', id].join('/');
     const channelId = (id) => [name, 'channels', id].join('/');
+    const listeners = [];
+    const listen = (event, handler) => {
+      service.on(event, handler);
+      listeners.push([event, handler]);
+    };
 
-    service.on('patch', function (patch) {
+    listen('patch', function (patch) {
       self.emit('patch', Object.assign({}, patch, {
         path: name + patch.path // TODO: check in Vector Machine that this is safe
       }));
     });
 
-    service.on('user', function (user) {
+    listen('user', function (user) {
       self.emit('user', {
         id: userId(user.id),
         name: user.name,
@@ -320,7 +327,7 @@ class Doorman extends Service {
       });
     });
 
-    service.on('channel', function (channel) {
+    listen('channel', function (channel) {
       self.emit('channel', {
         id: channelId(channel.id),
         name: channel.name,
@@ -328,21 +335,21 @@ class Doorman extends Service {
       });
     });
 
-    service.on('join', function (join) {
+    listen('join', function (join) {
       self.emit('join', {
         user: userId(join.user),
         channel: channelId(join.channel)
       });
     });
 
-    service.on('part', function (part) {
+    listen('part', function (part) {
       self.emit('part', {
         user: userId(part.user),
         channel: channelId(part.channel)
       });
     });
 
-    service.on('presence', function (presence) {
+    listen('presence', function (presence) {
       self.emit('presence', {
         user: userId(presence.user),
         status: presence.status === 'online' ? 'online' : 'offline',
@@ -351,7 +358,7 @@ class Doorman extends Service {
       });
     });
 
-    service.on('message', async function (msg) {
+    listen('message', async function (msg) {
       const now = Date.now();
       const id = [now, msg.actor, msg.target, msg.object].join('/');
       const hash = crypto.createHash('sha256').update(id).digest('hex');
@@ -384,7 +391,7 @@ class Doorman extends Service {
       }
     });
 
-    service.on('ready', function () {
+    listen('ready', function () {
       const meta = self._state.content.services[name] = self._state.content.services[name] || { counts: {} };
       meta.ready = true;
       meta.readyAt = new Date().toISOString();
@@ -392,11 +399,12 @@ class Doorman extends Service {
       self._broadcastConsole({ kind: 'service', service: name, ready: true });
     });
 
-    service.on('error', function (error) {
+    listen('error', function (error) {
       self.emit('error', `[DOORMAN:${name.toUpperCase()}] ${error && error.message ? error.message : error}`);
     });
 
     this.services[name] = service;
+    this._serviceListeners[name] = listeners;
     this._state.content.services[name] = this._state.content.services[name] || { counts: {} };
 
     if (typeof service.connect === 'function') {
@@ -577,11 +585,17 @@ class Doorman extends Service {
       try { await plugin.stop(); } catch (_) { /* best effort */ }
     }
 
-    for (const service of Object.values(this.services)) {
+    for (const [name, service] of Object.entries(this.services)) {
+      for (const [event, handler] of (this._serviceListeners[name] || [])) {
+        service.removeListener(event, handler);
+      }
       const method = typeof service.disconnect === 'function' ? 'disconnect' : (typeof service.stop === 'function' ? 'stop' : null);
       if (!method) continue;
       try { await service[method](); } catch (_) { /* best effort */ }
     }
+    // `start()` re-enables `config.services`; keeping these would double every listener.
+    this.services = {};
+    this._serviceListeners = {};
 
     if (this.http) await this.http.stop();
 

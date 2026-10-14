@@ -5,7 +5,7 @@
   "http": {
     "@comment": "Read-only web console (set \"http\": false to embed Doorman without a server).",
     "hostname": "localhost",
-    "interface": "0.0.0.0",
+    "interface": "127.0.0.1",
     "port": 4444
   },
   "plugins": ["debug", "topologyfacts"],

@@ -212,6 +212,8 @@ class Slack extends Service {
   async ready () {
     let service = this;
     let identity = await this.slack.auth.test().catch((e) => service.error(e));
+    // `auth.test()` failed (bad token, network): already reported via `error`.
+    if (!identity) return this;
 
     service.agent = Object.assign({
       id: identity.user_id

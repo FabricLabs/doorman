@@ -68,11 +68,16 @@ class FabricService extends Interface {
   async start () {
     const self = this;
 
-    self.node.on('error', this._handlePeerError.bind(self));
-    self.node.on('chat', this._handlePeerMessage.bind(self));
-    self.node.on('peer', this._handlePeerConnection.bind(self));
-    self.node.on('connections:close', this._handlePeerDisconnection.bind(self));
-    self.node.on('warning', this._handlePeerWarning.bind(self));
+    if (!self._peerListeners) {
+      self._peerListeners = [
+        ['error', this._handlePeerError.bind(self)],
+        ['chat', this._handlePeerMessage.bind(self)],
+        ['peer', this._handlePeerConnection.bind(self)],
+        ['connections:close', this._handlePeerDisconnection.bind(self)],
+        ['warning', this._handlePeerWarning.bind(self)]
+      ];
+      for (const [event, handler] of self._peerListeners) self.node.on(event, handler);
+    }
 
     const promise = new Promise((resolve, reject) => {
       self.node.start().catch(reject).then(resolve);
@@ -83,6 +88,10 @@ class FabricService extends Interface {
 
   async stop () {
     const self = this;
+    if (self._peerListeners) {
+      for (const [event, handler] of self._peerListeners) self.node.removeListener(event, handler);
+      self._peerListeners = null;
+    }
     const promise = new Promise((resolve, reject) => {
       self.node.stop().catch(reject).then(resolve);
     });

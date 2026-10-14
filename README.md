@@ -147,7 +147,9 @@ speaks the same WebSocket / JSON-RPC surface as a Fabric Hub. Data surfaces:
 
 Configure the server under `http` in your settings (`hostname`, `interface`,
 `port`, or any `@fabric/http` `HTTPServer` option). JSON-RPC is open
-(`requireAuth: false`) because every method is read-only. Pass `http: false`
+(`requireAuth: false`) because every method is read-only, so the console binds
+`127.0.0.1` by default; set `interface` (e.g. `0.0.0.0`) only when plugin
+reports are safe to expose to your network. Pass `http: false`
 to embed Doorman in a host process; `doorman.middleware()` then serves the same
 JSON API from the host's own server (see `goon.vc`'s presence service).
 

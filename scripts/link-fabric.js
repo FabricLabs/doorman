@@ -7,11 +7,12 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
+// Absolute paths: a relative symlink target would resolve from node_modules/@fabric, not the cwd.
 const targets = {
-  core: process.env.FABRIC_CORE || path.resolve(root, '../fabric-clean'),
-  http: process.env.FABRIC_HTTP || path.resolve(root, '../fabric-http'),
-  discord: process.env.FABRIC_DISCORD || path.resolve(root, '../fabric-discord'),
-  hub: process.env.FABRIC_HUB || path.resolve(root, '../hub.fabric.pub')
+  core: path.resolve(process.env.FABRIC_CORE || path.join(root, '../fabric-clean')),
+  http: path.resolve(process.env.FABRIC_HTTP || path.join(root, '../fabric-http')),
+  discord: path.resolve(process.env.FABRIC_DISCORD || path.join(root, '../fabric-discord')),
+  hub: path.resolve(process.env.FABRIC_HUB || path.join(root, '../hub.fabric.pub'))
 };
 
 for (const [name, target] of Object.entries(targets)) {

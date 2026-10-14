@@ -6,6 +6,8 @@ on:
   push:
     branches:
     - master
+permissions:
+  contents: read
 jobs:
   test:
     name: Run tests
@@ -17,9 +19,11 @@ jobs:
         - ubuntu-latest
     steps:
     - name: Checkout branch
-      uses: actions/checkout@v3
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Install Node.js on ${{ matrix.os }}
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version-file: '.nvmrc'
     - name: Install dependencies
@@ -27,6 +31,7 @@ jobs:
     - name: Generate coverage report
       run: npm run report:coverage
     - name: Send coverage report
-      uses: codecov/codecov-action@v3.1.1
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
       with:
         directory: ./reports/
+        token: ${{ secrets.CODECOV_TOKEN }}

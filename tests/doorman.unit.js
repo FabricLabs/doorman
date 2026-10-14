@@ -128,6 +128,24 @@ describe('Doorman', function () {
     await doorman.stop();
   });
 
+  it('detaches adapter listeners on stop() so a restart does not double events', async function () {
+    const doorman = new Doorman({ http: false, local: false });
+    const adapter = new FakeAdapter();
+    await doorman.start();
+    doorman.enable('fake', adapter);
+    assert.ok(adapter.listenerCount('message') > 0);
+
+    await doorman.stop();
+    assert.strictEqual(adapter.listenerCount('message'), 0);
+    assert.strictEqual(adapter.listenerCount('presence'), 0);
+    assert.deepStrictEqual(Object.keys(doorman.services), []);
+
+    await doorman.start();
+    doorman.enable('fake', adapter);
+    assert.strictEqual(adapter.listenerCount('message'), 1);
+    await doorman.stop();
+  });
+
   describe('console', function () {
     const port = 40000 + Math.floor(Math.random() * 20000);
     const base = `http://127.0.0.1:${port}`;
