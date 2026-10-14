@@ -1,10 +1,9 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
 const SlackSDK = require('@slack/client');
-const Service = require('../types/service');
+const Service = require('@fabric/core/types/service');
 
-class Slack extends Fabric.Service {
+class Slack extends Service {
   constructor (config) {
     super(config);
 
@@ -13,6 +12,16 @@ class Slack extends Fabric.Service {
     }, config);
 
     return this;
+  }
+
+  warn (...args) {
+    this.emit('warning', args.map((x) => (x && x.message) ? x.message : String(x)).join(' '));
+    return null;
+  }
+
+  error (...args) {
+    this.emit('error', args.map((x) => (x && x.message) ? x.message : String(x)).join(' '));
+    return null;
   }
 
   async connect () {
@@ -90,7 +99,7 @@ class Slack extends Fabric.Service {
 
     if (result && result.user) {
       await this._registerUser(result.user);
-      user = this._GET(`/actors/${id}`);
+      user = await this._GET(`/actors/${id}`);
     }
 
     return user;
@@ -108,7 +117,7 @@ class Slack extends Fabric.Service {
 
     if (result && result.channel) {
       await this._registerChannel(result.channel);
-      channel = this._GET(`/channels/${id}`);
+      channel = await this._GET(`/channels/${id}`);
     }
 
     return channel;
@@ -194,14 +203,15 @@ class Slack extends Fabric.Service {
     let online = (event.presence === 'active');
 
     await this._registerUser({ id: event.user });
-    await this._updatePresence(event.user, online);
+    await this._PUT(`/actors/${event.user}/online`, online);
+    this.emit('presence', { user: event.user, status: online ? 'online' : 'offline' });
 
     return this;
   }
 
   async ready () {
     let service = this;
-    let identity = await this.slack.auth.test().catch(service.error);
+    let identity = await this.slack.auth.test().catch((e) => service.error(e));
 
     service.agent = Object.assign({
       id: identity.user_id

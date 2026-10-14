@@ -120,6 +120,37 @@ doorman.use(plugin);
 doorman.start();
 ```
 
+## Web Console
+Doorman serves a **read-only status console** from its bundled `@fabric/http`
+server (default `http://localhost:4444/`). It lists enabled services, loaded
+plugins with their triggers and `report()` output, and aggregate event
+counters (messages, presence, joins, …) that update live. It never shows
+message content, user ids, or tokens.
+
+Build the UI once (webpack bundle + HTML shell), then start as usual:
+
+```bash
+npm run build   # assets/bundles/browser.min.js + assets/index.html
+npm start
+```
+
+The page is React on top of the `@fabric/hub` **Bridge** component, so it
+speaks the same WebSocket / JSON-RPC surface as a Fabric Hub. Data surfaces:
+
+| Surface | Purpose |
+|---------|---------|
+| `GET /services/doorman` | `status()` — services, plugins, triggers, counters, `startedAt` |
+| `GET /services/doorman/report` | every plugin's `report()` |
+| `GET /services/doorman/plugins/:name` | one plugin's report |
+| `POST /services/rpc` (and WebSocket `JSONCall`) | `GetDoormanStatus`, `GetDoormanReport`, `ListDoormanServices`, `ListDoormanPlugins`, `GetNetworkStatus` (Hub-shaped stub) |
+| WebSocket `GenericMessage` `{ type: 'DoormanEvent' }` | `{ kind, service, count, total }` per counted event |
+
+Configure the server under `http` in your settings (`hostname`, `interface`,
+`port`, or any `@fabric/http` `HTTPServer` option). JSON-RPC is open
+(`requireAuth: false`) because every method is read-only. Pass `http: false`
+to embed Doorman in a host process; `doorman.middleware()` then serves the same
+JSON API from the host's own server (see `goon.vc`'s presence service).
+
 ## Message Passing API
 Doorman emits events like any other `EventEmitter`, using a simple router for
 distinguishing between messages, users, and channels on various services.  This
@@ -179,7 +210,7 @@ finally "New configuration".  Place the "API Token" into `config/index.json`:
 ```json
 {
   "slack": {
-    "token": "xoxb-0000000000000-somelongstring..."
+    "token": "<your Slack bot token>"
   }
 }
 ```

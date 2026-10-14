@@ -1,25 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>@fabric/http</title>
-  <!-- <link rel="manifest" href="/manifest.json"> -->
-  <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
-  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  <script src="/scripts/jquery-3.4.1.js"></script>
-  <script src="/scripts/semantic.js"></script>
-  <script src="/bundles/browser.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>@fabric/doorman</title>
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" type="text/css" href="/semantic.min.css" />
+  <style>
+    body { background: #f4f4f6; }
+    #doorman { padding: 2em 0; }
+    .doorman-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+    .doorman-report pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  </style>
 </head>
-<body data-bind="2863a506eaa69a4a15bb863c2fdca53c8dfe51fdd5a24b5ca8d951ceebf8b369" data-hash="2863a506eaa69a4a15bb863c2fdca53c8dfe51fdd5a24b5ca8d951ceebf8b369">
-  <doorman-interface>
-    <fabric-header>
-      <h1><code>@fabric/doorman</code></h1>
-    </fabric-header>
-    <fabric-card class="ui card">
-      <fabric-card-content class="content">
-        <p>Waiting...</p>
-      </fabric-card-content>
-    </fabric-card>
+<body>
+  <doorman-interface id="doorman">
+    <div class="ui container">
+      <div class="ui active centered inline loader"></div>
+    </div>
   </doorman-interface>
+  <script src="/bundles/browser.min.js"></script>
 </body>
 </html>

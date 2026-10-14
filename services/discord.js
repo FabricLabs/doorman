@@ -1,35 +1,150 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
-const DiscordJS = require('discord.js');
+const Service = require('@fabric/core/types/service');
 
-class Discord extends Fabric.Service {
-  constructor (config) {
-    super(config);
-    this.config = Object.assign({
-      store: './stores/discord'
-    }, config);
+/**
+ * Discord adapter built on the suite's `@fabric/discord` service.
+ *
+ * Two modes:
+ *  - **owned**: `{ token, intents }` constructs and logs in its own client.
+ *  - **attached**: `{ client }` listens on an `@fabric/discord` instance the
+ *    host process already runs (one gateway connection per process). In this
+ *    mode Doorman never sends unless `settings.replies` is true.
+ *
+ * Emits the Doorman adapter events `message`, `join`, `part`, `presence`,
+ * `user`, `ready`, and `error`. Presence is derived from voice-channel
+ * occupancy (non-privileged intents only).
+ */
+class Discord extends Service {
+  constructor (settings = {}) {
+    super(Object.assign({ networking: false }, settings));
+
+    this.settings = Object.assign({
+      token: null,
+      intents: null,
+      client: null,
+      replies: null, // default: owned client replies, attached client is read-only
+      autoCommands: false
+    }, settings);
+
+    this.client = this.settings.client || null;
+    this.owned = !this.client;
+    this.isReady = false;
+    this._bound = false;
+    this._listeners = {};
+
+    return this;
   }
 
-  connect () {
-    if (this.config.token) {
-      this.connection = new DiscordJS.Client();
-      this.connection.login(this.config.token);
-      this.connection.on('ready', this.ready.bind(this));
-      this.connection.on('message', this.handler.bind(this));
+  get canSend () {
+    if (this.settings.replies != null) return !!this.settings.replies;
+    return this.owned;
+  }
+
+  _createClient () {
+    const FabricDiscord = require('@fabric/discord');
+    const options = { token: this.settings.token, autoCommands: this.settings.autoCommands };
+    if (Array.isArray(this.settings.intents)) options.intents = this.settings.intents;
+    return new FabricDiscord(options);
+  }
+
+  _bind () {
+    if (this._bound || !this.client) return;
+    this._listeners = {
+      ready: () => this._handleReady(),
+      activity: (activity) => this._handleActivity(activity),
+      voice: (event) => this._handleVoice(event),
+      error: (error) => this.emit('error', error)
+    };
+    for (const [event, handler] of Object.entries(this._listeners)) this.client.on(event, handler);
+    this._bound = true;
+    // Attached clients may already be connected.
+    if (!this.owned && this.client.botReady) this._handleReady();
+  }
+
+  _unbind () {
+    if (!this._bound || !this.client) return;
+    for (const [event, handler] of Object.entries(this._listeners)) this.client.removeListener(event, handler);
+    this._bound = false;
+  }
+
+  _handleReady () {
+    this.isReady = true;
+    const active = (this.client && this.client.voice && this.client.voice.active) || {};
+    for (const [channelId, record] of Object.entries(active)) {
+      for (const user of Object.keys((record && record.members) || {})) {
+        this.emit('presence', { user, status: 'online', channel: channelId });
+      }
     }
+    this.emit('ready', { name: 'discord' });
   }
 
-  handler (message) {
+  _handleActivity (activity) {
+    if (!activity || activity.type !== 'DiscordMessage') return;
+    const actor = activity.actor && activity.actor.ref;
+    const target = activity.target && activity.target.ref;
+    if (!actor || !target) return;
+    if (activity.actor.username) {
+      this.emit('user', { id: actor, name: activity.actor.username, online: true });
+    }
     this.emit('message', {
-      actor: message.author.id,
-      target: message.channel.id,
-      object: message.content
+      id: activity.object && activity.object.id,
+      actor,
+      target,
+      object: activity.object ? activity.object.content : ''
     });
   }
 
-  send (channel, message) {
-    this.connection.channels.get(channel).send(message);
+  _handleVoice (event) {
+    if (!event || !event.userId) return;
+    const user = String(event.userId);
+    const from = event.oldChannelId ? String(event.oldChannelId) : null;
+    const to = event.newChannelId ? String(event.newChannelId) : null;
+    if (from === to) return;
+    if (from) this.emit('part', { user, channel: from });
+    if (to) {
+      this.emit('join', { user, channel: to });
+      this.emit('presence', { user, status: 'online', channel: to });
+    } else {
+      this.emit('presence', { user, status: 'offline', channel: from });
+    }
+  }
+
+  async connect () {
+    if (!this.client) {
+      if (!this.settings.token) {
+        this.emit('warning', '[DOORMAN:DISCORD] no token and no client; adapter idle');
+        return this;
+      }
+      this.client = this._createClient();
+      this.owned = true;
+    }
+    this._bind();
+    if (this.owned) await this.client.start();
+    return this;
+  }
+
+  async disconnect () {
+    this._unbind();
+    if (this.owned && this.client) {
+      try { await this.client.stop(); } catch (_) { /* already down */ }
+    }
+    this.isReady = false;
+    return this;
+  }
+
+  async start () {
+    return this.connect();
+  }
+
+  async stop () {
+    return this.disconnect();
+  }
+
+  async send (channel, message) {
+    if (!this.canSend || !this.client) return null;
+    if (typeof this.client.postToChannel === 'function') return this.client.postToChannel(channel, message);
+    return null;
   }
 }
 
