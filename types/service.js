@@ -1,5 +1,8 @@
 'use strict';
 
+// TODO: deprecate
+// TODO: replace with @fabric/core/types/service
+
 const util = require('util');
 const stream = require('stream');
 

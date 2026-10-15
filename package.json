@@ -1,17 +1,33 @@
 {
   "name": "@fabric/doorman",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Multi-platform chatbot framework.",
   "main": "services/doorman.js",
+  "exports": {
+    ".": "./services/doorman.js",
+    "./services/*": "./services/*.js",
+    "./types/*": "./types/*.js",
+    "./components/*": "./components/*.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": "24.15.0",
+    "npm": ">=12"
+  },
   "scripts": {
     "bot": "node scripts/bot.js",
+    "link:fabric": "node scripts/link-fabric.js",
+    "build": "npm run build:browser && node scripts/build.js",
+    "build:browser": "webpack --mode production",
     "coverage": "NODE_ENV=test c8 npm test",
     "make:docs": "jsdoc types README.md -d docs",
     "start": "node scripts/node.js",
-    "test": "NODE_ENV=test mocha tests",
+    "test": "NODE_ENV=test mocha --timeout 20000 tests",
     "make:api": "npm run parse:api && jsdoc types/ README.md -d docs/",
     "make:coverage": "npm run coverage && c8 report --reporter html",
     "parse:api": "jsdoc2md --configure jsdoc.json --files types/** README.md > API.md",
+    "report:coverage": "npm run make:coverage && c8 report --reporter=text-lcov > reports/coverage.lcov",
+    "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log 2>&1",
     "review:coverage": "npm run make:coverage && ecstatic reports/coverage"
   },
   "repository": {
@@ -41,16 +57,38 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/lightning",
-    "@slack/client": "^5.0.2",
-    "discord.js": "^14.3.0",
-    "matrix-js-sdk": "^19.5.0"
+    "@fabric/core": "FabricLabs/fabric#feature/channels",
+    "@fabric/discord": "FabricLabs/fabric-discord#feature/channels",
+    "@fabric/http": "FabricLabs/fabric-http#feature/channels",
+    "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/channels",
+    "@slack/client": "5.0.2",
+    "json-pointer": "0.6.2",
+    "lodash.merge": "4.6.2",
+    "marked": "0.3.19",
+    "matrix-js-sdk": "24.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "semantic-ui-react": "2.1.5"
   },
   "devDependencies": {
-    "chai": "^4.3.6",
+    "@babel/core": "7.26.7",
+    "@babel/preset-env": "7.26.7",
+    "@babel/preset-react": "7.26.3",
+    "babel-loader": "9.1.3",
+    "buffer": "6.0.3",
+    "c8": "10.1.3",
+    "chai": "4.3.6",
+    "crypto-browserify": "3.12.1",
     "jsdoc": "FabricLabs/jsdoc",
-    "mocha": "10.0.0",
-    "semistandard": "11.0.0"
+    "mocha": "10.2.0",
+    "path-browserify": "1.0.1",
+    "process": "0.11.10",
+    "semistandard": "11.0.0",
+    "stream-browserify": "3.0.0",
+    "terser-webpack-plugin": "5.3.11",
+    "vm-browserify": "1.1.2",
+    "webpack": "5.109.2",
+    "webpack-cli": "5.1.4"
   },
   "semistandard": {
     "ignore": [

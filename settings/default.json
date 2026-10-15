@@ -2,6 +2,12 @@
   "name": "@fabric/doorman",
   "debug": true,
   "trigger": "!",
+  "http": {
+    "@comment": "Read-only web console (set \"http\": false to embed Doorman without a server).",
+    "hostname": "localhost",
+    "interface": "127.0.0.1",
+    "port": 4444
+  },
   "plugins": ["debug", "topologyfacts"],
   "services": {
     "@comment": "Remove the @ symbol to enable a service.",

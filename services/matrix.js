@@ -1,14 +1,14 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
-
+// Dependencies
 const matrix = require('matrix-js-sdk');
 const pointer = require('json-pointer');
-
 const markdown = require('marked');
-const Service = require('../types/service');
 
-class Matrix extends Fabric.Service {
+// Fabric Types
+const Service = require('@fabric/core/types/service');
+
+class Matrix extends Service {
   constructor (config) {
     super(config);
 
@@ -28,6 +28,16 @@ class Matrix extends Fabric.Service {
     console.log('[MATRIX:INFO]', msg);
   }
 
+  warn (...args) {
+    this.emit('warning', args.map((x) => (x && x.message) ? x.message : String(x)).join(' '));
+    return null;
+  }
+
+  error (...args) {
+    this.emit('error', args.map((x) => (x && x.message) ? x.message : String(x)).join(' '));
+    return null;
+  }
+
   sync (state, previous, data) {
     console.log('[MATRIX:SYNC]', state);
     switch (state) {
@@ -40,12 +50,12 @@ class Matrix extends Fabric.Service {
   async connect () {
     this.log('Connecting...');
 
-    try {
+    /* try {
       let prior = await this.store.get('/');
       this.state = JSON.parse(prior);
     } catch (E) {
       console.error('Could not restore state:', E);
-    }
+    } */
 
     if (this.config.token) {
       this.connection = matrix.createClient({
@@ -57,7 +67,7 @@ class Matrix extends Fabric.Service {
       // TODO: lift switch/case statements from handler to local bindings
       // this.connection.on('ready', this.ready.bind(this));
       this.connection.on('info', this.info.bind(this));
-      this.connection.on('error', this.error.bind(this));
+      this.connection.on('error', (error) => this.emit('error', error));
       this.connection.on('sync', this.sync.bind(this));
 
       this.connection.startClient();
@@ -165,7 +175,7 @@ class Matrix extends Fabric.Service {
 
       try {
         user.whispers = room.room_id;
-        this._PUT(`${path}/whispers`, user.whispers);
+        await this._PUT(`${path}/whispers`, user.whispers);
       } catch (E) {
         console.log(`Error setting whisper channel for user "${user.id}":`, E);
       }
@@ -260,14 +270,14 @@ class Matrix extends Fabric.Service {
 
   async _getPresences () {
     if (!this.connection) return this.warn(`Attempting to _getPresences(), but no Matrix connection exists.`);
-    let result = await this.connection.getPresenceList().catch(this.error);
+    let result = await this.connection.getPresenceList().catch((e) => this.error(e));
     return result;
   }
 
   async _getPresence (id) {
     if (!this.connection) return this.warn(`Attempting to _getPresence(), but no Matrix connection exists.`);
-    let member = await this._getUser(id).catch(this.error);
-    return member.presence || null;
+    let member = await this._getUser(id).catch((e) => this.error(e));
+    return (member && member.presence) || null;
   }
 
   async _getMembers (id) {
@@ -290,7 +300,7 @@ class Matrix extends Fabric.Service {
 
     let target = pointer.escape(user.id);
     let path = `/users/${target}`;
-    let known = this._GET(path);
+    let known = await this._GET(path);
     let data = Object.assign({
       id: user.id,
       name: user.displayName || user.id,
@@ -299,8 +309,8 @@ class Matrix extends Fabric.Service {
     }, known);
 
     try {
-      this._PUT(path, data);
-      this.emit('user', this._GET(path));
+      await this._PUT(path, data);
+      this.emit('user', await this._GET(path));
     } catch (E) {
       this.error('Something went wrong saving:', E);
     }
@@ -312,15 +322,14 @@ class Matrix extends Fabric.Service {
     let id = pointer.escape(message.event.sender);
     let path = `/users/${id}`;
 
-    try {
-      this._GET(path);
-    } catch (E) {
-      await this._registerUser({ id });
-    }
+    const known = await this._GET(path);
+    if (!known) await this._registerUser({ id });
 
     try {
-      this._PUT(`${path}/online`, (message.event.content.presence === 'online'));
-      this._PUT(`${path}/presence`, message.event.content.presence);
+      const online = (message.event.content.presence === 'online');
+      await this._PUT(`${path}/online`, online);
+      await this._PUT(`${path}/presence`, message.event.content.presence);
+      this.emit('presence', { user: message.event.sender, status: online ? 'online' : 'offline' });
     } catch (E) {
       console.log(`Error updating presence for user "${id}":`, E);
     }

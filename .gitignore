@@ -48,3 +48,8 @@ package-lock.json
 # sensitive configuration
 config
 config.json
+
+# Fabric stores (runtime data)
+stores/
+reports/coverage
+reports/coverage.lcov

@@ -12,9 +12,13 @@ class Disk extends Service {
     }, settings);
 
     // this.type = 'Disk';
-    this.root = settings || process.env.PWD;
+    this.root = (typeof settings === 'string' ? settings : settings.root) || process.env.PWD || process.cwd();
 
     return this;
+  }
+
+  get (path) {
+    return this._get(path);
   }
 
   exists (path) {
