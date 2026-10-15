@@ -128,6 +128,30 @@ describe('Doorman', function () {
     await doorman.stop();
   });
 
+  it('delivers plugin messages to a fixed target and reports failed sends as errors', async function () {
+    class Announcer extends Plugin {}
+    const doorman = new Doorman({ http: false, local: false });
+    const adapter = new FakeAdapter();
+    const errors = [];
+    doorman.on('error', (error) => errors.push(error));
+    await doorman.start();
+    doorman.enable('fake', adapter);
+    doorman.use(Announcer, { name: 'announcer' });
+    const plugin = doorman.plugins.announcer;
+
+    plugin.emit('message', { actor: 'announcer', object: 'hello', target: 'fake/channels/news' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(adapter.sent[0], { channel: 'news', message: 'hello' });
+
+    adapter.send = async () => { throw new Error('Missing Permissions'); };
+    plugin.emit('message', { actor: 'announcer', object: 'again', target: 'fake/channels/news' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(errors.length, 1);
+    assert.ok(errors[0].includes('fake/channels/news'));
+    assert.ok(errors[0].includes('Missing Permissions'));
+    await doorman.stop();
+  });
+
   it('detaches adapter listeners on stop() so a restart does not double events', async function () {
     const doorman = new Doorman({ http: false, local: false });
     const adapter = new FakeAdapter();

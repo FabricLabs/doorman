@@ -454,13 +454,21 @@ class Doorman extends Service {
       handler.on('message', function (message) {
         const parts = message.target.split('/');
         const service = self.services[parts[0]];
-        if (service && typeof service.send === 'function') service.send(parts[2], message.object);
+        if (service && typeof service.send === 'function') {
+          Promise.resolve().then(() => service.send(parts[2], message.object)).catch((error) => {
+            self.emit('error', `[DOORMAN:PLUGIN:${name}] send to ${message.target}: ${error && error.message ? error.message : error}`);
+          });
+        }
       });
 
       handler.on('whisper', function (whisper) {
         const parts = whisper.target.split('/');
         const service = self.services[parts[0]];
-        if (service && typeof service.whisper === 'function') service.whisper(parts[2], whisper.object);
+        if (service && typeof service.whisper === 'function') {
+          Promise.resolve().then(() => service.whisper(parts[2], whisper.object)).catch((error) => {
+            self.emit('error', `[DOORMAN:PLUGIN:${name}] whisper to ${whisper.target}: ${error && error.message ? error.message : error}`);
+          });
+        }
       });
 
       self.plugins[name] = handler;

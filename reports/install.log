@@ -16,9 +16,9 @@ npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and con
 npm warn deprecated eslint@3.19.0: This version is no longer supported. Please see https://eslint.org/version-support for other options.
 npm warn deprecated discord.js@14.18.0: This version is deprecated. Please use a newer version
 
-added 1366 packages, and audited 1367 packages in 3m
+added 1387 packages, and audited 1388 packages in 2m
 
-202 packages are looking for funding
+203 packages are looking for funding
   run `npm fund` for details
 
 64 vulnerabilities (6 low, 14 moderate, 42 high, 2 critical)
