@@ -3,7 +3,7 @@
 // Dependencies
 const matrix = require('matrix-js-sdk');
 const pointer = require('json-pointer');
-const markdown = require('marked');
+const { marked } = require('marked');
 
 // Fabric Types
 const Service = require('@fabric/core/types/service');
@@ -145,7 +145,7 @@ class Matrix extends Service {
     if (!channel) return this.error(`Parameter "channel" is required.`);
     if (!message) return this.error(`Parameter "message" is required.`);
 
-    let html = markdown(message);
+    let html = marked.parse(message, { async: false });
 
     // TODO: complain to `matrix-js-sdk` about duplicate params
     this.connection.sendHtmlMessage(channel, message, html);
@@ -270,8 +270,7 @@ class Matrix extends Service {
 
   async _getPresences () {
     if (!this.connection) return this.warn(`Attempting to _getPresences(), but no Matrix connection exists.`);
-    let result = await this.connection.getPresenceList().catch((e) => this.error(e));
-    return result;
+    return this.connection.getUsers().map((user) => ({ id: user.userId, presence: user.presence }));
   }
 
   async _getPresence (id) {

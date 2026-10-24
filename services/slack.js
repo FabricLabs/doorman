@@ -1,6 +1,7 @@
 'use strict';
 
-const SlackSDK = require('@slack/client');
+const { RTMClient } = require('@slack/rtm-api');
+const { WebClient } = require('@slack/web-api');
 const Service = require('@fabric/core/types/service');
 
 class Slack extends Service {
@@ -28,8 +29,8 @@ class Slack extends Service {
     this.log('Connecting...');
 
     if (this.config.token) {
-      this.slack = new SlackSDK.WebClient(this.config.token);
-      this.connection = new SlackSDK.RTMClient(this.config.token);
+      this.slack = new WebClient(this.config.token);
+      this.connection = new RTMClient(this.config.token);
       this.connection.on('ready', this.ready.bind(this));
       this.connection.on('message', this.handler.bind(this));
       this.connection.on('team_join', this._handleUserCreation.bind(this));
@@ -74,8 +75,7 @@ class Slack extends Service {
 
   async join (channel) {
     try {
-      // TODO: complain about Slack still not supporting this for bot users
-      this.slack.channels.join({ channel: channel });
+      await this.slack.conversations.join({ channel: channel });
     } catch (E) {
       this.error(`Could not join "${channel}":`, E);
     }
@@ -136,7 +136,7 @@ class Slack extends Service {
   }
 
   async _getChannels () {
-    let result = await this.slack.channels.list();
+    let result = await this.slack.conversations.list({ types: 'public_channel' });
 
     if (this.config.mirror) {
       for (let i in result.channels) {
