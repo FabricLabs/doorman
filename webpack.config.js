@@ -12,6 +12,8 @@ const path = require('path');
 const webpack = require('webpack');
 const TerserPlugin = require('terser-webpack-plugin');
 
+const browserCrypto = require.resolve('@fabric/http/functions/browserCrypto');
+
 /** When @fabric/* is npm-linked, transitive deps live under the clone; webpack must see them too. */
 function linkedFabricResolvePaths () {
   const hubs = path.join(__dirname, 'node_modules');
@@ -89,7 +91,7 @@ module.exports = (env, argv) => {
         '@noble/hashes/hmac': optionalResolve('@noble/hashes/hmac.js') || path.join(nodeModules, '@noble/hashes/hmac.js'),
         '@noble/hashes/ripemd160': optionalResolve('@noble/hashes/legacy.js') || path.join(nodeModules, '@noble/hashes/legacy.js'),
         '@noble/hashes/sha1': optionalResolve('@noble/hashes/legacy.js') || path.join(nodeModules, '@noble/hashes/legacy.js'),
-        'node:crypto': require.resolve('crypto-browserify'),
+        'node:crypto': browserCrypto,
         'react-dom/server': path.join(nodeModules, 'react-dom/server.browser.js')
       },
       fallback: {
@@ -97,13 +99,12 @@ module.exports = (env, argv) => {
         net: false,
         tls: false,
         child_process: false,
-        crypto: require.resolve('crypto-browserify'),
-        'node:crypto': require.resolve('crypto-browserify'),
+        crypto: browserCrypto,
+        'node:crypto': browserCrypto,
         path: require.resolve('path-browserify'),
         buffer: require.resolve('buffer'),
         stream: require.resolve('stream-browserify'),
-        process: require.resolve('process/browser'),
-        vm: require.resolve('vm-browserify')
+        process: require.resolve('process/browser')
       }
     },
     plugins: [

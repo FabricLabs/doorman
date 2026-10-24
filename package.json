@@ -11,7 +11,7 @@
     "./package.json": "./package.json"
   },
   "engines": {
-    "node": "24.15.0",
+    "node": "26.12.1",
     "npm": ">=12"
   },
   "scripts": {
@@ -57,10 +57,10 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/channels",
+    "@fabric/core": "FabricLabs/fabric#features/security",
     "@fabric/discord": "FabricLabs/fabric-discord#feature/channels",
-    "@fabric/http": "FabricLabs/fabric-http#feature/channels",
-    "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/channels",
+    "@fabric/http": "FabricLabs/fabric-http#feature/fomantic",
+    "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/markets",
     "@slack/client": "5.0.2",
     "json-pointer": "0.6.2",
     "lodash.merge": "4.6.2",
@@ -78,17 +78,21 @@
     "buffer": "6.0.3",
     "c8": "10.1.3",
     "chai": "4.3.6",
-    "crypto-browserify": "3.12.1",
     "jsdoc": "FabricLabs/jsdoc",
-    "mocha": "10.2.0",
+    "mocha": "12.0.3",
     "path-browserify": "1.0.1",
     "process": "0.11.10",
     "semistandard": "11.0.0",
     "stream-browserify": "3.0.0",
     "terser-webpack-plugin": "5.3.11",
-    "vm-browserify": "1.1.2",
-    "webpack": "5.109.2",
+    "webpack": "5.112.2",
     "webpack-cli": "5.1.4"
+  },
+  "allowScripts": {
+    "classic-level": true,
+    "classic-level@3.0.0": true,
+    "zeromq": true,
+    "zeromq@6.8.0": true
   },
   "semistandard": {
     "ignore": [

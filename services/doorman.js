@@ -6,6 +6,8 @@ const path = require('path');
 const Plugin = require('../types/plugin');
 const Router = require('../types/router');
 const Scribe = require('../types/scribe');
+const Script = require('../types/script');
+const Campaign = require('../types/campaign');
 
 const Service = require('@fabric/core/types/service');
 
@@ -14,7 +16,7 @@ const Service = require('@fabric/core/types/service');
  * namespaced under the service name (`<service>/users/<id>`, …).
  * @private
  */
-const ADAPTER_EVENTS = ['patch', 'user', 'channel', 'join', 'part', 'presence', 'message', 'ready', 'error'];
+const ADAPTER_EVENTS = ['patch', 'user', 'channel', 'join', 'part', 'presence', 'message', 'answer', 'ready', 'error'];
 
 /**
  * Base path of the read-only console JSON API served by {@link Doorman#middleware}.
@@ -26,7 +28,7 @@ const CONSOLE_BASE = '/services/doorman';
  * Adapter events the console counts (aggregates only — never content or ids).
  * @private
  */
-const COUNTED_EVENTS = ['message', 'user', 'channel', 'join', 'part', 'presence', 'response', 'trigger'];
+const COUNTED_EVENTS = ['message', 'user', 'channel', 'join', 'part', 'presence', 'answer', 'response', 'trigger'];
 
 /**
  * Package `assets/` when it sits inside `process.cwd()` (HTTPServer refuses
@@ -84,6 +86,8 @@ class Doorman extends Service {
     this._serviceListeners = {};
     this.triggers = {};
     this._triggerOwners = {};
+    this._pluginMiddlewares = {};
+    this._pluginStarts = {};
 
     this._state.content = Object.assign({}, this._state.content, {
       startedAt: null,
@@ -189,6 +193,13 @@ class Doorman extends Service {
       const url = new URL(req.originalUrl || req.url, 'http://localhost');
       const pathname = (req.path || url.pathname).replace(/\/+$/, '');
       if (pathname !== CONSOLE_BASE && !pathname.startsWith(CONSOLE_BASE + '/')) return next();
+      // Plugins with their own routes (e.g. `scripts`) own `/services/doorman/<plugin>`.
+      const owner = pathname.slice(CONSOLE_BASE.length + 1).split('/')[0];
+      const plugin = owner ? this.plugins[owner] : null;
+      if (plugin && typeof plugin.middleware === 'function') {
+        if (!this._pluginMiddlewares[owner]) this._pluginMiddlewares[owner] = plugin.middleware();
+        return this._pluginMiddlewares[owner](req, res, () => sendJson(res, 404, { error: 'Not found' }));
+      }
       if (String(req.method || 'GET').toUpperCase() !== 'GET') return sendJson(res, 405, { error: 'Method not allowed' });
 
       let job = null;
@@ -373,8 +384,12 @@ class Doorman extends Service {
         },
         created: now
       };
+      if (msg.private === true) message.private = true;
 
       self.emit('message', message);
+
+      // A private reply to an open conversation belongs to the plugin running it.
+      if (self.claimed(message)) return;
 
       const response = await self.parse(message);
       if (response) {
@@ -389,6 +404,14 @@ class Doorman extends Service {
           });
         }
       }
+    });
+
+    listen('answer', function (answer) {
+      if (!answer || (!answer.session && !answer.campaign)) return;
+      self.emit('answer', Object.assign({}, answer, {
+        user: answer.user ? userId(answer.user) : null,
+        service: name
+      }));
     });
 
     listen('ready', function () {
@@ -462,13 +485,12 @@ class Doorman extends Service {
       });
 
       handler.on('whisper', function (whisper) {
-        const parts = whisper.target.split('/');
+        const parts = String(whisper.target || '').split('/');
         const service = self.services[parts[0]];
-        if (service && typeof service.whisper === 'function') {
-          Promise.resolve().then(() => service.whisper(parts[2], whisper.object)).catch((error) => {
-            self.emit('error', `[DOORMAN:PLUGIN:${name}] whisper to ${whisper.target}: ${error && error.message ? error.message : error}`);
-          });
-        }
+        if (!service || typeof service.whisper !== 'function') return;
+        self.whisper(whisper.target, whisper.object).catch((error) => {
+          self.emit('error', `[DOORMAN:PLUGIN:${name}] whisper to ${whisper.target}: ${error && error.message ? error.message : error}`);
+        });
       });
 
       self.plugins[name] = handler;
@@ -476,7 +498,6 @@ class Doorman extends Service {
 
       // Plugins start immediately; Doorman#start() awaits these so hosts know
       // every plugin (and its Store) is ready once `start()` resolves.
-      if (!self._pluginStarts) self._pluginStarts = {};
       self._pluginStarts[name] = Promise.resolve(handler.start()).catch((error) => {
         self.emit('error', `[DOORMAN:PLUGIN:${name}] start: ${error && error.message ? error.message : error}`);
       });
@@ -496,6 +517,50 @@ class Doorman extends Service {
     }
 
     return this;
+  }
+
+  /**
+   * Send a private message to one user through the adapter that owns them.
+   * @param {String} target Namespaced user id (`<service>/users/<id>`).
+   * @param {String|Object} object Text, or a structured payload the adapter renders (`ScriptStep`, `CampaignMessage`).
+   * @returns {Promise<*>} The adapter's result; rejects when it cannot deliver.
+   */
+  async whisper (target, object) {
+    const parts = String(target || '').split('/');
+    if (parts.length !== 3 || parts[1] !== 'users') throw new Error(`Not a user: ${target}`);
+    const service = this.services[parts[0]];
+    if (!service) throw new Error(`No service "${parts[0]}" for ${target}`);
+    if (typeof service.whisper !== 'function') throw new Error(`Service "${parts[0]}" cannot send private messages`);
+    // Adapters without buttons or menus get plain text with typed replies.
+    const type = object && typeof object === 'object' ? object.type : null;
+    if (type === 'ScriptStep' && service.rendersScripts !== true) return service.whisper(parts[2], Script.toText(object));
+    if (type === 'CampaignMessage' && service.rendersCampaigns !== true) return service.whisper(parts[2], Campaign.toText(object));
+    return service.whisper(parts[2], object);
+  }
+
+  /**
+   * Does a plugin claim this message (a private reply to a conversation it is
+   * running)? Claimed messages skip `!trigger` routing.
+   * @param {Object} message Doorman message.
+   * @returns {Boolean}
+   */
+  claimed (message) {
+    if (!message || message.private !== true) return false;
+    return Object.values(this.plugins).some((plugin) => {
+      if (typeof plugin.claims !== 'function') return false;
+      try { return !!plugin.claims(message); } catch (_) { return false; }
+    });
+  }
+
+  /**
+   * Resolves once a plugin added with {@link Doorman#use} has started.
+   * @param {String} name Plugin name.
+   * @returns {Promise<Object|null>} The plugin, or null when there is none.
+   */
+  async started (name) {
+    if (!this.plugins[name]) return null;
+    await this._pluginStarts[name];
+    return this.plugins[name];
   }
 
   async parse (msg) {
