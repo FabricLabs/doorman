@@ -170,6 +170,65 @@ describe('Doorman', function () {
     await doorman.stop();
   });
 
+  it('replacing a service name detaches and disconnects the previous adapter', async function () {
+    const doorman = new Doorman({ http: false, local: false });
+    await doorman.start();
+    const first = new FakeAdapter();
+    let disconnected = 0;
+    first.disconnect = () => { disconnected++; };
+    doorman.enable('fake', first);
+    const second = new FakeAdapter();
+    doorman.enable('fake', second);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(first.listenerCount('message'), 0);
+    assert.strictEqual(disconnected, 1);
+    assert.strictEqual(doorman.services.fake, second);
+    // Re-enabling the same instance re-wires it without disconnecting.
+    second.disconnect = () => { disconnected++; };
+    doorman.enable('fake', second);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(second.listenerCount('message'), 1);
+    assert.strictEqual(disconnected, 1);
+    await doorman.stop();
+  });
+
+  it('does not report a replacement adapter ready before it says so', async function () {
+    const doorman = new Doorman({ http: false, local: false });
+    await doorman.start();
+    doorman.enable('fake', new FakeAdapter());
+    assert.strictEqual(doorman._state.content.services.fake.ready, true);
+    await doorman.stop();
+    assert.strictEqual(doorman._state.content.services.fake.ready, false);
+    const silent = new FakeAdapter();
+    silent.connect = () => {};
+    await doorman.start();
+    doorman.enable('fake', silent);
+    assert.strictEqual(doorman._state.content.services.fake.ready, false);
+    await doorman.stop();
+  });
+
+  it('logs adapter failures instead of throwing when nobody listens for errors', async function () {
+    const doorman = new Doorman({ http: false, local: false });
+    const original = console.error;
+    const logged = [];
+    console.error = (...parts) => logged.push(parts.join(' '));
+    try {
+      assert.doesNotThrow(() => doorman.emit('error', 'boom'));
+    } finally {
+      console.error = original;
+    }
+    assert.ok(logged.some((line) => line.includes('boom')));
+    const seen = [];
+    doorman.on('error', (message) => seen.push(message));
+    console.error = () => { throw new Error('should stay quiet with a host listener'); };
+    try {
+      doorman.emit('error', 'again');
+    } finally {
+      console.error = original;
+    }
+    assert.deepStrictEqual(seen, ['again']);
+  });
+
   describe('console', function () {
     const port = 40000 + Math.floor(Math.random() * 20000);
     const base = `http://127.0.0.1:${port}`;

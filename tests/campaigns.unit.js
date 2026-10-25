@@ -284,6 +284,34 @@ describe('Campaigns', function () {
     assert.strictEqual(doorman.claimed({ private: true, actor: 'fake/users/carol', object: 'stop' }), false);
   });
 
+  it('one scheduled campaign that fails to launch does not block the others', async function () {
+    await boot();
+    const broken = await campaigns.create({ content: { text: 'Broken' }, filter: { guilds: ['g1'] } });
+    const fine = await campaigns.create({ content: { text: 'Fine' }, filter: { guilds: ['g1'] } });
+    await campaigns.schedule(broken.id, { sendAt: new Date(clock + 1000).toISOString() });
+    await campaigns.schedule(fine.id, { sendAt: new Date(clock + 1000).toISOString() });
+    const audience = campaigns._audience.bind(campaigns);
+    let calls = 0;
+    campaigns._audience = (campaign) => {
+      if (campaign.id !== broken.id) return audience(campaign);
+      calls++;
+      throw new Error('audience unavailable');
+    };
+    const errors = [];
+    campaigns.on('error', (message) => errors.push(message));
+    clock += 1000;
+    await campaigns.tick();
+    assert.strictEqual(campaigns.campaign(fine.id).status, 'sending');
+    assert.strictEqual(campaigns.campaign(broken.id).status, 'scheduled');
+    assert.ok(errors.some((message) => message.includes('audience unavailable')));
+    await campaigns.tick();
+    assert.strictEqual(calls, 1, 'waits retryMs before trying again');
+    clock += campaigns.settings.retryMs;
+    campaigns._audience = audience;
+    await campaigns.tick();
+    assert.strictEqual(campaigns.campaign(broken.id).status, 'sending');
+  });
+
   it('waits for sendAt, pauses, resumes, cancels, and only edits drafts', async function () {
     await boot();
     const draft = await campaigns.create({ content: { text: 'Later' }, filter: { guilds: ['g1'] } });

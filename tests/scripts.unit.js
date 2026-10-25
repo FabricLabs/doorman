@@ -73,6 +73,10 @@ describe('Script', function () {
     assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', next: 'nowhere' } } }), /missing step "nowhere"/);
     assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'choice' } } } }), /needs options/);
     assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'text', pattern: '(' } } } }), /regular expression/);
+    for (const pattern of ['(a+)+$', '(a|aa)*', '^(\\w+)\\1$']) {
+      assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'text', pattern } } } }), /simplify it/, pattern);
+    }
+    assert.ok(Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'text', pattern: '^(foo|bar)-[0-9]{2,4}$' } } } }));
     try {
       Script.validate(null);
     } catch (error) {
@@ -327,6 +331,40 @@ describe('Scripts', function () {
     assert.strictEqual(scripts.content.sessions[broken.id].status, 'failed');
     assert.match(adapter.last(), /Something went wrong/);
     assert.ok(errors.some((error) => String(error).includes('boom')));
+  });
+
+  it('merges action results into what is recorded and said, and passes exposed errors on', async function () {
+    const acting = Object.assign({}, SETUP, {
+      id: 'acting',
+      start: 'contact',
+      complete: { say: '{{labels.made}} Thanks, {{answers.contact}}.' },
+      onComplete: [{ action: 'make' }, { action: 'record' }]
+    });
+    await boot({ seed: [acting] });
+    let fail = null;
+    scripts.action('make', (session) => {
+      if (fail) throw fail;
+      return { answers: { madeId: `id-${session.answers.contact}` }, labels: { made: 'Made it.' } };
+    });
+
+    const session = await scripts.begin('acting', { user: 'fake/users/hana', subject: 'guild-1' });
+    await scripts.answer(session.id, 'contact', 'Hana');
+    assert.strictEqual(adapter.last(), 'Made it. Thanks, Hana.');
+    const result = scripts.results('acting').find((entry) => entry.subject === 'guild-1');
+    assert.strictEqual(result.answers.madeId, 'id-Hana');
+
+    fail = Object.assign(new Error('I need Manage Channels on this server.'), { expose: true });
+    const errors = [];
+    const warnings = [];
+    scripts.on('error', (error) => errors.push(error));
+    scripts.on('warning', (warning) => warnings.push(warning));
+    const refused = await scripts.begin('acting', { user: 'fake/users/hana', subject: 'guild-2' });
+    await scripts.answer(refused.id, 'contact', 'Hana');
+    assert.strictEqual(scripts.content.sessions[refused.id].status, 'failed');
+    assert.strictEqual(adapter.last(), 'I need Manage Channels on this server.');
+    assert.deepStrictEqual(errors, []);
+    assert.strictEqual(warnings.length, 1);
+    assert.ok(!scripts.results('acting').some((entry) => entry.subject === 'guild-2'), 'a failed action records nothing');
   });
 
   it('reports undeliverable first steps to the caller', async function () {

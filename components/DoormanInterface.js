@@ -99,6 +99,33 @@ function ArrayView ({ rows }) {
  * through the Hub Bridge's JSON-RPC client and bumps counters live from
  * `DoormanEvent` GenericMessage frames on the Bridge WebSocket.
  */
+/**
+ * Status snapshot with one live `DoormanEvent` applied (events carry totals).
+ * @param {object|null} previous
+ * @param {object} event
+ * @returns {object|null}
+ */
+function withEvent (previous, event) {
+  if (!previous) return previous;
+  const status = Object.assign({}, previous);
+  status.counts = Object.assign({}, status.counts);
+  if (event.kind && typeof event.total === 'number') status.counts[event.kind] = event.total;
+  if (event.service) {
+    status.services = (status.services || []).map((service) => {
+      if (service.name !== event.service) return service;
+      const next = Object.assign({}, service, { counts: Object.assign({}, service.counts) });
+      if (event.kind === 'service') {
+        next.ready = event.ready === true;
+        if (next.ready && !next.readyAt) next.readyAt = new Date().toISOString();
+      } else if (event.kind && typeof event.count === 'number') {
+        next.counts[event.kind] = event.count;
+      }
+      return next;
+    });
+  }
+  return status;
+}
+
 class DoormanInterface extends React.Component {
   constructor (props) {
     super(props);
@@ -146,27 +173,11 @@ class DoormanInterface extends React.Component {
   }
 
   applyEvent (event) {
-    this.setState((previous) => {
-      const status = previous.status ? Object.assign({}, previous.status) : null;
-      if (status) {
-        status.counts = Object.assign({}, status.counts);
-        if (event.kind && typeof event.total === 'number') status.counts[event.kind] = event.total;
-        if (event.service) {
-          status.services = (status.services || []).map((service) => {
-            if (service.name !== event.service) return service;
-            const next = Object.assign({}, service, { counts: Object.assign({}, service.counts) });
-            if (event.kind === 'service') {
-              next.ready = event.ready === true;
-              if (next.ready && !next.readyAt) next.readyAt = new Date().toISOString();
-            } else if (event.kind && typeof event.count === 'number') {
-              next.counts[event.kind] = event.count;
-            }
-            return next;
-          });
-        }
-      }
-      return { status, lastEvent: Object.assign({ at: new Date().toISOString() }, event) };
-    });
+    if (this._eventsDuringRefresh) this._eventsDuringRefresh.push(event);
+    this.setState((previous) => ({
+      status: withEvent(previous.status, event),
+      lastEvent: Object.assign({ at: new Date().toISOString() }, event)
+    }));
   }
 
   async rpc (method) {
@@ -190,15 +201,26 @@ class DoormanInterface extends React.Component {
   }
 
   async refresh () {
-    const [status, report] = await Promise.all([this.rpc('GetDoormanStatus'), this.rpc('GetDoormanReport')]);
-    if (!this._mounted) return;
-    if (status.error) return this.setState({ error: status.error });
-    this.setState({
-      status: status.result,
-      report: report.error ? null : report.result,
-      error: report.error || null,
-      loadedAt: new Date().toISOString()
+    // A stalled plugin report must not hold back the status, so each lands on its own.
+    const loadReport = this.rpc('GetDoormanReport').then((report) => {
+      if (!this._mounted) return;
+      this.setState({ report: report.error ? null : report.result, reportError: report.error || null });
     });
+    // Events seen while the snapshot is in flight are newer than it; replay them on top.
+    const buffered = this._eventsDuringRefresh = [];
+    const status = await this.rpc('GetDoormanStatus');
+    if (this._eventsDuringRefresh === buffered) this._eventsDuringRefresh = null;
+    if (!this._mounted) return;
+    if (status.error) {
+      this.setState({ error: status.error });
+    } else {
+      this.setState({
+        status: buffered.reduce(withEvent, status.result),
+        error: null,
+        loadedAt: new Date().toISOString()
+      });
+    }
+    await loadReport;
   }
 
   renderServices () {
@@ -255,6 +277,7 @@ class DoormanInterface extends React.Component {
       <Segment>
         <Header as="h3"><Icon name="puzzle piece" />Plugins</Header>
         {!plugins.length && <p>No plugins loaded.</p>}
+        {this.state.reportError && <Message warning size="small">Plugin reports unavailable: {this.state.reportError}</Message>}
         {plugins.map((plugin) => (
           <Segment key={plugin.name} secondary>
             <Header as="h4">

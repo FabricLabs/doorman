@@ -98,6 +98,12 @@ class Doorman extends Service {
     this.router = new Router({ trigger: this.config.trigger });
     this.scribe = new Scribe({ namespace: 'doorman' });
 
+    // Adapter and plugin failures are emitted from detached promise chains;
+    // with no listener, `emit('error')` would throw there as an unhandled rejection.
+    this.on('error', (...parts) => {
+      if (this.listenerCount('error') === 1) this.scribe.throw(...parts);
+    });
+
     this.http = null;
     if (this.settings.http !== false) {
       const HTTPServer = require('@fabric/http/types/server');
@@ -197,8 +203,9 @@ class Doorman extends Service {
       const owner = pathname.slice(CONSOLE_BASE.length + 1).split('/')[0];
       const plugin = owner ? this.plugins[owner] : null;
       if (plugin && typeof plugin.middleware === 'function') {
-        if (!this._pluginMiddlewares[owner]) this._pluginMiddlewares[owner] = plugin.middleware();
-        return this._pluginMiddlewares[owner](req, res, () => sendJson(res, 404, { error: 'Not found' }));
+        let cached = this._pluginMiddlewares[owner];
+        if (!cached || cached.plugin !== plugin) cached = this._pluginMiddlewares[owner] = { plugin, handler: plugin.middleware() };
+        return cached.handler(req, res, () => sendJson(res, 404, { error: 'Not found' }));
       }
       if (String(req.method || 'GET').toUpperCase() !== 'GET') return sendJson(res, 405, { error: 'Method not allowed' });
 
@@ -315,6 +322,15 @@ class Doorman extends Service {
 
     self.scribe.log(`enabling service "${name}"...`);
 
+    // Replacing a name: drop the old adapter's listeners (and disconnect it
+    // when it is another instance) so it cannot keep answering.
+    const previous = this.services[name];
+    if (previous) {
+      this._detachService(name, { disconnect: previous !== service }).catch((error) => {
+        self.emit('error', `[DOORMAN:${name.toUpperCase()}] disconnect: ${error && error.message ? error.message : error}`);
+      });
+    }
+
     const userId = (id) => [name, 'users', id].join('/');
     const channelId = (id) => [name, 'channels', id].join('/');
     const listeners = [];
@@ -428,7 +444,10 @@ class Doorman extends Service {
 
     this.services[name] = service;
     this._serviceListeners[name] = listeners;
-    this._state.content.services[name] = this._state.content.services[name] || { counts: {} };
+    const meta = this._state.content.services[name] = this._state.content.services[name] || { counts: {} };
+    // Readiness belongs to this adapter instance; it reports `ready` itself.
+    meta.ready = false;
+    meta.readyAt = null;
 
     if (typeof service.connect === 'function') {
       Promise.resolve(service.connect()).catch((error) => {
@@ -652,23 +671,41 @@ class Doorman extends Service {
     return this;
   }
 
+  /**
+   * Remove an enabled adapter's listeners and disconnect it.
+   * @private
+   * @param {String} name
+   * @param {Object} [opts] `{ disconnect }` (default true)
+   * @returns {Promise}
+   */
+  _detachService (name, opts = {}) {
+    const service = this.services[name];
+    for (const [event, handler] of (this._serviceListeners[name] || [])) {
+      if (service) service.removeListener(event, handler);
+    }
+    delete this.services[name];
+    delete this._serviceListeners[name];
+    if (!service || opts.disconnect === false) return Promise.resolve();
+    const method = typeof service.disconnect === 'function' ? 'disconnect' : (typeof service.stop === 'function' ? 'stop' : null);
+    return method ? Promise.resolve().then(() => service[method]()) : Promise.resolve();
+  }
+
   async stop () {
     for (const plugin of Object.values(this.plugins)) {
       if (typeof plugin.stop !== 'function') continue;
       try { await plugin.stop(); } catch (_) { /* best effort */ }
     }
 
-    for (const [name, service] of Object.entries(this.services)) {
-      for (const [event, handler] of (this._serviceListeners[name] || [])) {
-        service.removeListener(event, handler);
-      }
-      const method = typeof service.disconnect === 'function' ? 'disconnect' : (typeof service.stop === 'function' ? 'stop' : null);
-      if (!method) continue;
-      try { await service[method](); } catch (_) { /* best effort */ }
+    for (const name of Object.keys(this.services)) {
+      try { await this._detachService(name); } catch (_) { /* best effort */ }
     }
     // `start()` re-enables `config.services`; keeping these would double every listener.
     this.services = {};
     this._serviceListeners = {};
+    for (const meta of Object.values(this._state.content.services)) {
+      meta.ready = false;
+      meta.readyAt = null;
+    }
 
     if (this.http) await this.http.stop();
 

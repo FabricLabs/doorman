@@ -67,6 +67,57 @@ function normalizeOption (option, field) {
   };
 }
 
+const PATTERN_CACHE = new Map();
+const MAX_CACHED_PATTERNS = 500;
+
+/**
+ * Whether an operator-authored pattern risks catastrophic backtracking: a
+ * quantified group that itself repeats or alternates (`(a+)+`, `(a|aa)*`),
+ * or a backreference. Answers are short, but a script runs on every reply.
+ * @private
+ * @param {string} pattern
+ * @returns {boolean}
+ */
+function unsafePattern (pattern) {
+  if (/\\[1-9]|\\k</.test(pattern)) return true;
+  const stack = [];
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '\\') { i++; continue; }
+    if (c === '[') {
+      for (i++; i < pattern.length && pattern[i] !== ']'; i++) if (pattern[i] === '\\') i++;
+      continue;
+    }
+    if (c === '(') { stack.push({ repeats: false, alternates: false }); continue; }
+    if ((c === '+' || c === '*' || c === '{') && stack.length) stack[stack.length - 1].repeats = true;
+    if (c === '|' && stack.length) stack[stack.length - 1].alternates = true;
+    if (c === ')') {
+      const group = stack.pop() || { repeats: false, alternates: false };
+      const next = pattern[i + 1];
+      const quantified = next === '+' || next === '*' || next === '{';
+      if (quantified && (group.repeats || group.alternates)) return true;
+      if (stack.length && (group.repeats || quantified)) stack[stack.length - 1].repeats = true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Compiled answer pattern, built once per distinct source.
+ * @private
+ * @param {string} pattern
+ * @returns {RegExp}
+ */
+function compiledPattern (pattern) {
+  let re = PATTERN_CACHE.get(pattern);
+  if (!re) {
+    re = new RegExp(pattern);
+    if (PATTERN_CACHE.size >= MAX_CACHED_PATTERNS) PATTERN_CACHE.delete(PATTERN_CACHE.keys().next().value);
+    PATTERN_CACHE.set(pattern, re);
+  }
+  return re;
+}
+
 function normalizeInput (input, field) {
   const source = input == null ? {} : input;
   if (typeof source !== 'object' || Array.isArray(source)) fail(`${field} must be an object`);
@@ -90,7 +141,8 @@ function normalizeInput (input, field) {
     out.minLength = Math.max(Number(source.minLength) || 0, 0);
     if (source.pattern != null) {
       out.pattern = text(source.pattern, `${field}.pattern`, { required: true, max: 200 });
-      try { new RegExp(out.pattern); } catch (_) { fail(`${field}.pattern is not a valid regular expression`); }
+      try { compiledPattern(out.pattern); } catch (_) { fail(`${field}.pattern is not a valid regular expression`); }
+      if (unsafePattern(out.pattern)) fail(`${field}.pattern repeats a repeating or alternating group (or uses a backreference); simplify it`);
     }
     out.multiline = source.multiline === true;
   }
@@ -294,7 +346,7 @@ class Script {
         if (!answer) return { ok: false, error: input.optional ? 'Type an answer, or "skip".' : 'Type an answer.' };
         if (answer.length < input.minLength) return { ok: false, error: `Use at least ${input.minLength} characters.` };
         if (answer.length > input.maxLength) return { ok: false, error: `Keep it under ${input.maxLength} characters.` };
-        if (input.pattern && !new RegExp(input.pattern).test(answer)) return { ok: false, error: 'That doesn\'t look right; try again.' };
+        if (input.pattern && !compiledPattern(input.pattern).test(answer)) return { ok: false, error: 'That doesn\'t look right; try again.' };
         return { ok: true, value: answer, label: answer };
       }
       default:

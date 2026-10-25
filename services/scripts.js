@@ -220,7 +220,11 @@ class Scripts extends Service {
 
   /**
    * Name an `onComplete` action. `record` (save the answers under the
-   * session subject) is built in and may be replaced.
+   * session subject) is built in and may be replaced. An action may return
+   * `{ answers, labels }`, merged into the session before later actions run
+   * and the completion message renders. One that throws an error with
+   * `expose: true` fails the session with that error's message; any other
+   * error sends a generic one.
    * @param {string} name
    * @param {Function} fn `(session, entry, definition) => *` (may be async).
    * @returns {Scripts}
@@ -654,12 +658,22 @@ class Scripts extends Service {
       for (const entry of definition.onComplete) {
         const action = this._actions[entry.action];
         if (typeof action !== 'function') throw new Error(`unknown action "${entry.action}"`);
-        await action(this._view(session), entry, definition);
+        const result = await action(this._view(session), entry, definition);
+        if (result && typeof result === 'object') {
+          if (result.answers && typeof result.answers === 'object') Object.assign(session.answers, result.answers);
+          if (result.labels && typeof result.labels === 'object') Object.assign(session.labels, result.labels);
+        }
       }
     } catch (error) {
       this._finish(session, 'failed');
-      this.emit('error', `[SCRIPTS] ${session.script} onComplete: ${errorMessage(error)}`);
-      await this._deliver(session, SAVE_FAILED);
+      await this._persist();
+      if (error && error.expose === true) {
+        this.emit('warning', `[SCRIPTS] ${session.script} onComplete: ${errorMessage(error)}`);
+        await this._deliver(session, errorMessage(error));
+      } else {
+        this.emit('error', `[SCRIPTS] ${session.script} onComplete: ${errorMessage(error)}`);
+        await this._deliver(session, SAVE_FAILED);
+      }
       return;
     }
     this._finish(session, 'completed');

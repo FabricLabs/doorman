@@ -57,7 +57,7 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#features/security",
+    "@fabric/core": "FabricLabs/fabric#feature/locks",
     "@fabric/discord": "FabricLabs/fabric-discord#feature/channels",
     "@fabric/http": "FabricLabs/fabric-http#feature/fomantic",
     "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/markets",

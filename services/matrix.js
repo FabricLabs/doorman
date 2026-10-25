@@ -300,12 +300,21 @@ class Matrix extends Service {
     let target = pointer.escape(user.id);
     let path = `/users/${target}`;
     let known = await this._GET(path);
-    let data = Object.assign({
+    let fresh = {
       id: user.id,
-      name: user.displayName || user.id,
-      online: user.currentlyActive || false,
+      name: user.displayName,
+      online: user.currentlyActive,
       presence: user.presence
-    }, known);
+    };
+
+    for (let key in fresh) {
+      if (fresh[key] === undefined) delete fresh[key];
+    }
+
+    let data = Object.assign({
+      name: user.id,
+      online: false
+    }, known, fresh);
 
     try {
       await this._PUT(path, data);

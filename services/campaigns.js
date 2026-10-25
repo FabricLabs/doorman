@@ -149,6 +149,7 @@ class Campaigns extends Service {
     this._audiences = {};
     this._activity = null;
     this._timer = null;
+    this._launchRetryAt = {};
     this._running = false;
     this._queue = Promise.resolve();
     this.host = null;
@@ -490,8 +491,16 @@ class Campaigns extends Service {
       let changed = false;
       for (const campaign of Object.values(this.content.campaigns)) {
         if (campaign.status === 'scheduled' && time(campaign.sendAt) <= now) {
-          await this._launch(campaign, null);
-          changed = true;
+          // One campaign whose audience can't be read must not hold up the rest.
+          if ((this._launchRetryAt[campaign.id] || 0) > now) continue;
+          try {
+            await this._launch(campaign, null);
+            delete this._launchRetryAt[campaign.id];
+            changed = true;
+          } catch (error) {
+            this._launchRetryAt[campaign.id] = now + this.settings.retryMs;
+            this.emit('error', `[CAMPAIGNS] launch ${campaign.id}: ${errorMessage(error)}`);
+          }
         }
       }
       let attempted = false;

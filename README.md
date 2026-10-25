@@ -199,7 +199,10 @@ the script.
   passed."), and sessions expire after `ttlMs` (default one day).
 - **Hooks:** `source(name, fn)` supplies choices, `action(name, fn)` runs on
   completion (`record` is built in: the latest answers per `subject`, e.g. a
-  server), and `authorize(fn)` checks each `requires` entry when a session
+  server; an action may return `{ answers, labels }` for later actions, the
+  record, and the completion message, and an error it throws with
+  `expose: true` is shown to the person instead of a generic failure), and
+  `authorize(fn)` checks each `requires` entry when a session
   starts and again before it completes. Scripts with `requires` refuse to run
   without an authorizer.
 
