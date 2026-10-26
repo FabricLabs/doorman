@@ -276,7 +276,11 @@ await campaigns.schedule(draft.id, { sendAt: '2026-11-01T18:00:00Z', by: 'Kersa'
 - **Filter:** `platforms`, `guilds`, `roles`, `excludeGuilds`, `excludeRoles`,
   `excludeCampaigns` (skip whoever an earlier campaign reached), and
   `activeWithinDays` (needs an `activity` hook; members it knows nothing about
-  count as inactive). Lists hold at most 50 entries.
+  count as inactive). `inactiveForDays` turns it into a check-in: only people
+  last active at least that many days ago (never-seen people are skipped,
+  counted as `unseen`; recent ones as `active`), the most inactive first, so
+  the cap keeps them too; with `activeWithinDays` it selects a window. Lists
+  hold at most 50 entries.
 - **Hooks:** `audience(platform, fn)` lists the members on one platform as
   `{ target, name, source, sourceName }` (`source` is the server they were
   found in, named in each DM and in the Stop button). The host applies
@@ -302,7 +306,10 @@ await campaigns.schedule(draft.id, { sendAt: '2026-11-01T18:00:00Z', by: 'Kersa'
   the reply. Opt-outs are kept forever and skipped by every later campaign.
 - **Privacy:** recipients, deliveries, and opt-outs are stored but never
   returned; `campaign(id)` and `list()` carry counts (`stats`) only, and
-  `report()` counts by status.
+  `report()` counts by status. In-process, the plugin emits `delivered`
+  `{ campaign, title, target, at }` for each DM that goes out, so a host can
+  keep its own record (e.g. to contact someone once, however many campaigns
+  later).
 
 **Rendering.** `doorman.whisper(target, message)` hands a `CampaignMessage` to
 the adapter that owns the user. The Discord adapter (`whispers: true`) sends

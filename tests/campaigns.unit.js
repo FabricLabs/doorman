@@ -79,6 +79,10 @@ describe('Campaign', function () {
     assert.throws(() => Campaign.draft({ content: { text: 'x'.repeat(1801) } }), /at most 1800/);
     assert.throws(() => Campaign.draft({ content: { type: 'script', text: 'x' } }), /must name a script/);
     assert.throws(() => Campaign.draft({ content: { text: 'x' }, filter: { activeWithinDays: 0 } }), /activeWithinDays/);
+    assert.strictEqual(Campaign.draft({ content: { text: 'x' }, filter: { inactiveForDays: '60', activeWithinDays: 120 } }).filter.inactiveForDays, 60);
+    assert.strictEqual(Campaign.draft({ content: { text: 'x' } }).filter.inactiveForDays, null);
+    assert.throws(() => Campaign.draft({ content: { text: 'x' }, filter: { inactiveForDays: 1.5 } }), /inactiveForDays/);
+    assert.throws(() => Campaign.draft({ content: { text: 'x' }, filter: { inactiveForDays: 60, activeWithinDays: 60 } }), /more than filter.inactiveForDays/);
     assert.throws(() => Campaign.draft({ content: { text: 'x' }, filter: { excludeCampaigns: ['nope'] } }), /invalid entry/);
     assert.throws(() => Campaign.draft({ content: { text: 'x' }, filter: { roles: 'pilot' } }), /must be a list/);
   });
@@ -159,6 +163,31 @@ describe('Campaigns', function () {
     assert.strictEqual(active.inactive, 2);
   });
 
+  it('checks in with the inactive in a window, most inactive first, never the unseen', async function () {
+    await boot();
+    lastSeen['fake/users/alice'] = clock - 10 * DAY;
+    lastSeen['fake/users/bob'] = clock - 70 * DAY;
+    lastSeen['fake/users/carol'] = clock - 200 * DAY;
+    const lapsed = await campaigns.create({ content: { text: 'We miss you!' }, filter: { inactiveForDays: 30 } });
+    const preview = await campaigns.preview(lapsed.id);
+    assert.deepStrictEqual([preview.reach, preview.active, preview.unseen, preview.inactive], [2, 1, 1, 0], 'Alice is active, Dave was never seen');
+
+    const delivered = [];
+    campaigns.on('delivered', (event) => delivered.push(event));
+    const sending = await campaigns.schedule(lapsed.id);
+    assert.deepStrictEqual([sending.stats.targeted, sending.stats.active, sending.stats.unseen], [2, 1, 1]);
+    await drain();
+    assert.deepStrictEqual(adapter.whispers.map((entry) => entry.user), ['carol', 'bob'], 'the longest gone hear first');
+    assert.deepStrictEqual(delivered.map((event) => [event.campaign, event.title, event.target]), [
+      [lapsed.id, lapsed.title, 'fake/users/carol'],
+      [lapsed.id, lapsed.title, 'fake/users/bob']
+    ], 'each DM that goes out is reported in-process');
+    assert.ok(delivered.every((event) => Date.parse(event.at)));
+
+    const window = await campaigns.create({ content: { text: 'Been a while' }, filter: { inactiveForDays: 60, activeWithinDays: 120 } });
+    const middle = await campaigns.preview(window.id);
+    assert.deepStrictEqual([middle.reach, middle.active, middle.inactive, middle.unseen], [1, 1, 1, 1], 'only Bob is between 60 and 120 days');
+  });
   it('sends one message per tick, renders Start / Stop, and records each outcome', async function () {
     await boot();
     const draft = await campaigns.create({ content: { text: 'Fleet night!' } });
@@ -357,6 +386,49 @@ describe('Campaigns', function () {
     await assert.rejects(campaigns.schedule(big.id), /would reach 3 people; the limit is 2/);
   });
 
+  it('sends to exactly the people a preview listed, and only with that preview when required', async function () {
+    const extra = { target: 'fake/users/erin', name: 'Erin', source: 'g1', sourceName: 'G00N SQUAD', roles: ['pilot'] };
+    await boot({ requirePreview: true });
+    const draft = await campaigns.create({ content: { text: 'Fleet night!' }, filter: { roles: ['pilot'] } });
+    await assert.rejects(campaigns.schedule(draft.id), (error) => error.status === 409 && /Preview this campaign/.test(error.message));
+
+    const first = await campaigns.preview(draft.id);
+    assert.match(first.id, /^[0-9a-f]{8}$/);
+    assert.deepStrictEqual(first.recipients, [
+      { name: 'Alice', sourceName: 'G00N SQUAD' },
+      { name: 'Carol', sourceName: 'G00N SQUAD' },
+      { name: 'Dave', sourceName: 'TRDE' }
+    ]);
+    assert.ok(!JSON.stringify(first).includes('users/'), 'previews carry names, never ids');
+    assert.ok(!JSON.stringify(campaigns.campaign(draft.id)).includes('users/'));
+
+    const second = await campaigns.preview(draft.id);
+    await assert.rejects(campaigns.schedule(draft.id, { preview: first.id }), /out of date/);
+
+    // After the preview, Erin joins and Dave opts out: only Alice and Carol hear.
+    PEOPLE.push(extra);
+    try {
+      await campaigns.optOut('fake/users/dave', { all: true });
+      const scheduled = await campaigns.schedule(draft.id, { preview: second.id, sendAt: new Date(clock + 60 * 1000).toISOString() });
+      assert.strictEqual(scheduled.status, 'scheduled');
+      assert.strictEqual(scheduled.preview.id, second.id);
+      assert.strictEqual(scheduled.preview.notPreviewed, 1);
+      clock += 60 * 1000;
+      await drain();
+      assert.deepStrictEqual(adapter.whispers.map((entry) => entry.user), ['alice', 'carol']);
+      const sent = campaigns.campaign(draft.id);
+      assert.deepStrictEqual([sent.stats.targeted, sent.stats.notPreviewed, sent.stats.optedOut], [2, 1, 1]);
+      assert.deepStrictEqual(campaigns.content.approvals, {}, 'the previewed list is dropped once sending starts');
+
+      const edited = await campaigns.create({ content: { text: 'Edit me' } });
+      const shown = await campaigns.preview(edited.id);
+      await campaigns.update(edited.id, { content: { text: 'Edited' } });
+      await assert.rejects(campaigns.schedule(edited.id, { preview: shown.id }), /out of date/, 'an edit needs a new preview');
+    } finally {
+      PEOPLE.splice(PEOPLE.indexOf(extra), 1);
+    }
+  });
+
   it('resumes sending after a restart', async function () {
     await boot();
     const draft = await campaigns.create({ content: { text: 'Hi' } });
@@ -393,8 +465,12 @@ describe('Campaigns', function () {
     assert.strictEqual(created.status, 200);
     const id = created.body.id;
     assert.strictEqual((await call('PATCH', `/services/doorman/campaigns/${id}`, { content: { text: 'Fleet night!' } })).body.content.text, 'Fleet night!');
-    assert.strictEqual((await call('POST', `/services/doorman/campaigns/${id}/preview`, {})).body.reach, 3);
-    assert.strictEqual((await call('POST', `/services/doorman/campaigns/${id}/schedule`, {})).body.status, 'sending');
+    const previewed = await call('POST', `/services/doorman/campaigns/${id}/preview`, {});
+    assert.strictEqual(previewed.body.reach, 3);
+    assert.deepStrictEqual(previewed.body.recipients.map((entry) => entry.name), ['Alice', 'Carol', 'Dave']);
+    assert.ok(!JSON.stringify(previewed.body).includes('users/'));
+    assert.strictEqual((await call('POST', `/services/doorman/campaigns/${id}/schedule`, { preview: 'deadbeef' })).status, 409);
+    assert.strictEqual((await call('POST', `/services/doorman/campaigns/${id}/schedule`, { preview: previewed.body.id })).body.status, 'sending');
     assert.strictEqual((await call('POST', `/services/doorman/campaigns/${id}/schedule`, {})).status, 409);
     await drain();
     const list = await call('GET', '/services/doorman/campaigns');

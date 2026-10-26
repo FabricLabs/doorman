@@ -128,6 +128,35 @@ describe('Doorman', function () {
     await doorman.stop();
   });
 
+  it('reports a failed reply or parse as an error instead of an unhandled rejection', async function () {
+    const doorman = new Doorman({ http: false, local: false });
+    const adapter = new FakeAdapter();
+    const errors = [];
+    const unhandled = [];
+    const onUnhandled = (reason) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    doorman.on('error', (error) => errors.push(error));
+    doorman.use({ test: 'Successfully handled!' });
+    await doorman.start();
+    doorman.enable('fake', adapter);
+
+    try {
+      adapter.send = async () => { throw new Error('Missing Permissions'); };
+      adapter.emit('message', { id: 'm1', actor: 'alice', target: 'lobby', object: '!test' });
+      doorman.parse = async () => { throw new Error('parser broke'); };
+      adapter.emit('message', { id: 'm2', actor: 'alice', target: 'lobby', object: '!test' });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.strictEqual(errors.length, 2);
+      assert.ok(errors.some((error) => error.includes('[DOORMAN:FAKE] message: Missing Permissions')));
+      assert.ok(errors.some((error) => error.includes('[DOORMAN:FAKE] message: parser broke')));
+      assert.deepStrictEqual(unhandled, []);
+    } finally {
+      process.removeListener('unhandledRejection', onUnhandled);
+      await doorman.stop();
+    }
+  });
+
   it('delivers plugin messages to a fixed target and reports failed sends as errors', async function () {
     class Announcer extends Plugin {}
     const doorman = new Doorman({ http: false, local: false });

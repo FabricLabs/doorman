@@ -96,7 +96,11 @@ function unsafePattern (pattern) {
       const next = pattern[i + 1];
       const quantified = next === '+' || next === '*' || next === '{';
       if (quantified && (group.repeats || group.alternates)) return true;
-      if (stack.length && (group.repeats || quantified)) stack[stack.length - 1].repeats = true;
+      if (stack.length) {
+        const parent = stack[stack.length - 1];
+        if (group.repeats || quantified) parent.repeats = true;
+        if (group.alternates) parent.alternates = true;
+      }
     }
   }
   return false;

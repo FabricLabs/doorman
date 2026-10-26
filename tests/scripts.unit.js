@@ -73,7 +73,7 @@ describe('Script', function () {
     assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', next: 'nowhere' } } }), /missing step "nowhere"/);
     assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'choice' } } } }), /needs options/);
     assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'text', pattern: '(' } } } }), /regular expression/);
-    for (const pattern of ['(a+)+$', '(a|aa)*', '^(\\w+)\\1$']) {
+    for (const pattern of ['(a+)+$', '(a|aa)*', '^((a|aa)b?)+$', '^(\\w+)\\1$']) {
       assert.throws(() => Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'text', pattern } } } }), /simplify it/, pattern);
     }
     assert.ok(Script.validate({ id: 'x', title: 'x', steps: { a: { say: 'a', input: { type: 'text', pattern: '^(foo|bar)-[0-9]{2,4}$' } } } }));

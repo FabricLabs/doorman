@@ -404,21 +404,25 @@ class Doorman extends Service {
 
       self.emit('message', message);
 
-      // A private reply to an open conversation belongs to the plugin running it.
-      if (self.claimed(message)) return;
+      try {
+        // A private reply to an open conversation belongs to the plugin running it.
+        if (self.claimed(message)) return;
 
-      const response = await self.parse(message);
-      if (response) {
-        self.emit('response', {
-          parent: message,
-          response: response
-        });
-
-        if (typeof service.send === 'function') {
-          service.send(msg.target, response, {
-            parent: message
+        const response = await self.parse(message);
+        if (response) {
+          self.emit('response', {
+            parent: message,
+            response: response
           });
+
+          if (typeof service.send === 'function') {
+            await service.send(msg.target, response, {
+              parent: message
+            });
+          }
         }
+      } catch (error) {
+        self.emit('error', `[DOORMAN:${name.toUpperCase()}] message: ${error && error.message ? error.message : error}`);
       }
     });
 

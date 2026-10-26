@@ -80,7 +80,7 @@ function time (value) {
 }
 
 function emptyStats () {
-  return { targeted: 0, sent: 0, failed: 0, closed: 0, optedOut: 0, inactive: 0, excluded: 0, stopped: 0, started: 0, pending: 0 };
+  return { targeted: 0, sent: 0, failed: 0, closed: 0, optedOut: 0, inactive: 0, active: 0, unseen: 0, excluded: 0, notPreviewed: 0, stopped: 0, started: 0, pending: 0 };
 }
 
 /**
@@ -92,8 +92,10 @@ function emptyStats () {
  * platform) and, optionally, when each person was last active with
  * {@link Campaigns#activity}. Campaigns merges people found in several
  * places, drops anyone who opted out (from that source or from everything),
- * anyone an excluded campaign already reached, and anyone inactive too long,
- * then stops at the audience cap. The audience is snapshotted when sending
+ * anyone an excluded campaign already reached, and anyone inactive too long
+ * (or, with `inactiveForDays`, active too recently or never seen), then stops
+ * at the audience cap. A check-in (`inactiveForDays`) goes to the most
+ * inactive first, so the cap keeps them too. The audience is snapshotted when sending
  * starts; each message goes out through the host's `whisper(target, message)`
  * as a `CampaignMessage` that adapters render with Start / Stop controls
  * (plain text with "Reply STOP" everywhere else). Answers come back as host
@@ -121,6 +123,7 @@ class Campaigns extends Service {
    * @param {string} [settings.via] Site or bot name shown under each message ("Sent by X via <via>").
    * @param {string} [settings.token] Bearer token for the HTTP API.
    * @param {string} [settings.basePath='/services/doorman/campaigns']
+   * @param {boolean} [settings.requirePreview=false] Send only with a preview's id ({@link Campaigns#schedule}), so whoever sends has seen exactly who it reaches.
    * @param {Function} [settings.now] Clock (tests).
    */
   constructor (settings = {}) {
@@ -142,10 +145,11 @@ class Campaigns extends Service {
       via: null,
       token: null,
       basePath: BASE,
+      requirePreview: false,
       now: () => Date.now()
     }, this.settings, settings);
 
-    this._state.content = { campaigns: {}, deliveries: {}, optouts: {}, recent: {} };
+    this._state.content = { campaigns: {}, deliveries: {}, optouts: {}, recent: {}, approvals: {} };
     this._audiences = {};
     this._activity = null;
     this._timer = null;
@@ -232,7 +236,7 @@ class Campaigns extends Service {
   }
 
   /**
-   * Say when a person was last active, for `activeWithinDays`.
+   * Say when a person was last active, for `activeWithinDays` and `inactiveForDays`.
    * @param {Function} fn `(target) => number|string|Date|null` (may be async).
    * @returns {Campaigns}
    */
@@ -299,6 +303,7 @@ class Campaigns extends Service {
         filter: Object.assign({}, campaign.filter, patch.filter || {})
       });
       Object.assign(campaign, draft, { preview: null });
+      delete this.content.approvals[id];
       this._confine(campaign);
       this._log(campaign, 'update', by, { fields: ['title', 'content', 'filter'].filter((field) => patch[field] !== undefined) });
       await this._persist();
@@ -307,34 +312,54 @@ class Campaigns extends Service {
   }
 
   /**
-   * Count who a campaign would reach right now (saved on the campaign).
+   * Who a campaign would reach right now. The counts are saved on the
+   * campaign with the preview's `id`; the people previewed are kept (never
+   * served) so that sending with that `id` reaches only them.
    * @param {string} id
-   * @returns {Promise<Object>} `{ reach, limit, over, optedOut, excluded, inactive, found, sources: [{ source, sourceName, count }] }`
+   * @returns {Promise<Object>} `{ id, at, reach, limit, over, optedOut, excluded, inactive, active, unseen, found, sources: [{ source, sourceName, count }], recipients: [{ name, sourceName }] }` (recipients in sending order)
    */
   preview (id) {
     return this._serial(async () => {
       const campaign = this._get(id);
-      const { counts } = await this._audience(campaign);
-      campaign.preview = Object.assign({ at: new Date(this.now).toISOString() }, counts);
+      if (!['draft', 'scheduled'].includes(campaign.status)) throw httpError(409, `This campaign is ${campaign.status}.`);
+      const { recipients, counts } = await this._audience(campaign, { approved: false });
+      const at = new Date(this.now).toISOString();
+      const token = crypto.randomBytes(4).toString('hex');
+      campaign.preview = Object.assign({ id: token, at }, counts);
+      this.content.approvals[campaign.id] = { preview: token, at, targets: recipients.map((recipient) => recipient.target) };
       await this._persist();
-      return Object.assign({}, campaign.preview);
+      return Object.assign({}, campaign.preview, {
+        recipients: recipients.map((recipient) => ({ name: recipient.name, sourceName: recipient.sourceName }))
+      });
     });
   }
 
   /**
-   * Send a draft at `sendAt`, or now. Refused when the audience is over the
-   * cap, or when the owning server sent one within the cooldown (429, with
-   * `retryAt`).
+   * Send a draft at `sendAt`, or now. With `preview` (a {@link Campaigns#preview}
+   * id) it reaches only the people that preview listed who still qualify;
+   * an older preview's id is refused (409), and with `requirePreview` so is
+   * sending without one. Refused when the audience is over the cap, or when
+   * the owning server sent one within the cooldown (429, with `retryAt`).
    * @param {string} id
    * @param {Object} [options]
    * @param {string|number|Date} [options.sendAt]
+   * @param {string} [options.preview] The preview whose people to send to.
    * @param {string} [options.by]
    * @returns {Promise<Object>}
    */
-  schedule (id, { sendAt = null, by = null } = {}) {
+  schedule (id, { sendAt = null, preview = null, by = null } = {}) {
     return this._serial(async () => {
       const campaign = this._get(id);
       if (!['draft', 'scheduled'].includes(campaign.status)) throw httpError(409, `This campaign is ${campaign.status}.`);
+      const approval = this.content.approvals[campaign.id];
+      if (preview != null && preview !== '') {
+        if (!approval || approval.preview !== String(preview)) throw httpError(409, 'This preview is out of date. Preview the campaign again to see who it reaches now.');
+        campaign.approved = approval.preview;
+      } else if (this.settings.requirePreview) {
+        throw httpError(409, 'Preview this campaign and send it with that preview, so whoever sends sees exactly who it reaches.');
+      } else {
+        campaign.approved = null;
+      }
       let at = this.now;
       if (sendAt != null && sendAt !== '') {
         at = time(sendAt);
@@ -347,7 +372,7 @@ class Campaigns extends Service {
       }
       this._checkCooldown(campaign, at);
       const { counts } = await this._audience(campaign);
-      campaign.preview = Object.assign({ at: new Date(this.now).toISOString() }, counts);
+      campaign.preview = Object.assign({ id: campaign.approved || null, at: new Date(this.now).toISOString() }, counts);
       if (counts.over) {
         await this._persist();
         throw httpError(400, `This campaign would reach ${counts.reach} people; the limit is ${counts.limit}. Narrow it down first.`, { preview: Object.assign({}, campaign.preview) });
@@ -417,6 +442,7 @@ class Campaigns extends Service {
       for (const delivery of Object.values(this.content.deliveries[id] || {})) {
         if (delivery.status === 'pending') delivery.status = 'cancelled';
       }
+      delete this.content.approvals[id];
       campaign.status = 'cancelled';
       campaign.finishedAt = new Date(this.now).toISOString();
       this._count(campaign);
@@ -672,10 +698,17 @@ class Campaigns extends Service {
     }
   }
 
-  async _audience (campaign) {
+  // Everyone the campaign reaches now; once sent with a preview (`approved`),
+  // only those that preview listed.
+  async _audience (campaign, { approved = true } = {}) {
     const filter = campaign.filter;
-    if (filter.activeWithinDays && typeof this._activity !== 'function') {
-      throw httpError(400, 'Recent activity is not tracked here, so activeWithinDays cannot be used.');
+    const approval = approved && campaign.approved ? this.content.approvals[campaign.id] : null;
+    if (approved && campaign.approved && (!approval || approval.preview !== campaign.approved)) {
+      throw httpError(409, 'The preview this campaign was sent with is gone. Preview it again.');
+    }
+    const listed = approval ? new Set(approval.targets) : null;
+    if ((filter.activeWithinDays || filter.inactiveForDays) && typeof this._activity !== 'function') {
+      throw httpError(400, `Recent activity is not tracked here, so ${filter.activeWithinDays ? 'activeWithinDays' : 'inactiveForDays'} cannot be used.`);
     }
     const platforms = filter.platforms.length ? filter.platforms : Object.keys(this._audiences);
     const view = this._view(campaign);
@@ -704,9 +737,14 @@ class Campaigns extends Service {
     }
 
     const now = this.now;
-    const counts = { found: people.size, optedOut: 0, excluded: 0, inactive: 0 };
+    const counts = { found: people.size, optedOut: 0, excluded: 0, inactive: 0, active: 0, unseen: 0, notPreviewed: 0 };
     const recipients = [];
+    const seenAt = new Map();
     for (const person of people.values()) {
+      if (listed && !listed.has(person.target)) {
+        counts.notPreviewed += 1;
+        continue;
+      }
       const optout = this.content.optouts[person.target];
       const open = !optout ? person.sources : (optout.all ? [] : person.sources.filter((entry) => !optout.sources.includes(entry.source)));
       if (!open.length) {
@@ -717,15 +755,25 @@ class Campaigns extends Service {
         counts.excluded += 1;
         continue;
       }
-      if (filter.activeWithinDays) {
+      if (filter.activeWithinDays || filter.inactiveForDays) {
         const seen = await this._lastSeen(person.target);
-        if (seen === null || now - seen > filter.activeWithinDays * DAY) {
+        if (seen === null && filter.inactiveForDays) {
+          counts.unseen += 1;
+          continue;
+        }
+        if (filter.activeWithinDays && (seen === null || now - seen > filter.activeWithinDays * DAY)) {
           counts.inactive += 1;
           continue;
         }
+        if (filter.inactiveForDays && now - seen < filter.inactiveForDays * DAY) {
+          counts.active += 1;
+          continue;
+        }
+        seenAt.set(person.target, seen);
       }
       recipients.push({ target: person.target, name: person.name, source: open[0].source, sourceName: open[0].sourceName });
     }
+    if (filter.inactiveForDays) recipients.sort((a, b) => seenAt.get(a.target) - seenAt.get(b.target));
 
     const limit = this._limit(campaign);
     const sources = new Map();
@@ -756,8 +804,12 @@ class Campaigns extends Service {
       targeted: recipients.length,
       optedOut: counts.optedOut,
       excluded: counts.excluded,
-      inactive: counts.inactive
+      inactive: counts.inactive,
+      active: counts.active,
+      unseen: counts.unseen,
+      notPreviewed: counts.notPreviewed
     });
+    delete this.content.approvals[campaign.id];
     campaign.status = 'sending';
     campaign.startedAt = new Date(this.now).toISOString();
     if (!campaign.sendAt) campaign.sendAt = campaign.startedAt;
@@ -791,6 +843,7 @@ class Campaigns extends Service {
       delivery.retryAt = 0;
       campaign.stats.sent += 1;
       this.content.recent[target] = { campaign: campaign.id, at: this.now };
+      this.emit('delivered', { campaign: campaign.id, title: campaign.title, target, at: delivery.sentAt });
     } catch (error) {
       const code = Number(error && error.code);
       const status = Number(error && (error.status || error.httpStatus));
@@ -928,6 +981,7 @@ class Campaigns extends Service {
     this.content.deliveries = prior.deliveries || {};
     this.content.optouts = prior.optouts || {};
     this.content.recent = prior.recent || {};
+    this.content.approvals = prior.approvals || {};
   }
 
   async _persist () {
@@ -949,7 +1003,9 @@ class Campaigns extends Service {
    * JSON API, every route behind `authorize(req)` or a bearer token equal to
    * `token` (404 when neither is configured): `GET|POST <base>`,
    * `GET|PATCH <base>/<id>`, and `POST <base>/<id>/preview|schedule|pause|resume|cancel`.
-   * Responses carry counts and logs, never who a campaign went to.
+   * Responses carry counts and logs, never who a campaign went to; a
+   * preview lists the display names it would reach (no ids), and
+   * `schedule` takes its `{ preview }` id to send to just them.
    * @param {Object} [options]
    * @param {Function} [options.authorize] `(req) => boolean` (may be async).
    * @param {string} [options.token] Defaults to `settings.token`.
@@ -1006,7 +1062,7 @@ class Campaigns extends Service {
           const body = await readBody(req);
           switch (parts[1]) {
             case 'preview': return this.preview(id);
-            case 'schedule': return this.schedule(id, { sendAt: body.sendAt, by: body.by || null });
+            case 'schedule': return this.schedule(id, { sendAt: body.sendAt, preview: body.preview, by: body.by || null });
             default: return this[parts[1]](id, { by: body.by || null });
           }
         }
@@ -1029,3 +1085,5 @@ class Campaigns extends Service {
 module.exports = Campaigns;
 module.exports.Campaign = Campaign;
 module.exports.BASE = BASE;
+// Hosts check this before relying on `requirePreview` (older releases ignore it).
+module.exports.PREVIEW_APPROVALS = true;

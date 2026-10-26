@@ -9,9 +9,17 @@ const MAX_TEXT = 1800;
 const MAX_TITLE = 100;
 const MAX_LIST = 50;
 const MAX_ACTIVE_DAYS = 365;
+const MAX_INACTIVE_DAYS = 3650;
 
 function fail (message) {
   throw Object.assign(new Error(message), { status: 400 });
+}
+
+function days (value, field, max) {
+  if (value === '' || value === undefined || value === null) return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 1 || number > max) fail(`filter.${field} must be a whole number from 1 to ${max}`);
+  return number;
 }
 
 function list (value, field) {
@@ -49,21 +57,23 @@ class Campaign {
   }
 
   /**
-   * Validate and normalize who a campaign reaches.
+   * Validate and normalize who a campaign reaches. `activeWithinDays` keeps
+   * people active in the last N days; `inactiveForDays` keeps people whose
+   * last activity is at least N days old (never-seen people are left out),
+   * most inactive first. Together they select a window.
    * @param {Object} [filter]
-   * @returns {Object} `{ platforms, guilds, roles, excludeGuilds, excludeRoles, excludeCampaigns, activeWithinDays }`
+   * @returns {Object} `{ platforms, guilds, roles, excludeGuilds, excludeRoles, excludeCampaigns, activeWithinDays, inactiveForDays }`
    */
   static filter (filter) {
     if (filter == null) filter = {};
     if (typeof filter !== 'object' || Array.isArray(filter)) fail('filter must be an object');
     const normalized = Object.fromEntries(LISTS.map((field) => [field, list(filter[field], field)]));
-    let days = filter.activeWithinDays;
-    if (days === '' || days === undefined) days = null;
-    if (days !== null) {
-      days = Number(days);
-      if (!Number.isInteger(days) || days < 1 || days > MAX_ACTIVE_DAYS) fail(`filter.activeWithinDays must be a whole number from 1 to ${MAX_ACTIVE_DAYS}`);
+    normalized.activeWithinDays = days(filter.activeWithinDays, 'activeWithinDays', MAX_ACTIVE_DAYS);
+    normalized.inactiveForDays = days(filter.inactiveForDays, 'inactiveForDays', MAX_INACTIVE_DAYS);
+    if (normalized.activeWithinDays !== null && normalized.inactiveForDays !== null &&
+      normalized.activeWithinDays <= normalized.inactiveForDays) {
+      fail('filter.activeWithinDays must be more than filter.inactiveForDays');
     }
-    normalized.activeWithinDays = days;
     return normalized;
   }
 
