@@ -57,10 +57,10 @@
   },
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/locks",
+    "@fabric/core": "FabricLabs/fabric#feature/passport-v2",
     "@fabric/discord": "FabricLabs/fabric-discord#feature/channels",
-    "@fabric/http": "FabricLabs/fabric-http#feature/fomantic",
-    "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/markets",
+    "@fabric/http": "FabricLabs/fabric-http#feature/passport-v2",
+    "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/passport-v2",
     "@slack/rtm-api": "7.0.4",
     "@slack/web-api": "7.19.0",
     "json-pointer": "0.6.2",
