@@ -1,10 +1,10 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
-const SlackSDK = require('@slack/client');
-const Service = require('../types/service');
+const { RTMClient } = require('@slack/rtm-api');
+const { WebClient } = require('@slack/web-api');
+const Service = require('@fabric/core/types/service');
 
-class Slack extends Fabric.Service {
+class Slack extends Service {
   constructor (config) {
     super(config);
 
@@ -15,12 +15,22 @@ class Slack extends Fabric.Service {
     return this;
   }
 
+  warn (...args) {
+    this.emit('warning', args.map((x) => (x && x.message) ? x.message : String(x)).join(' '));
+    return null;
+  }
+
+  error (...args) {
+    this.emit('error', args.map((x) => (x && x.message) ? x.message : String(x)).join(' '));
+    return null;
+  }
+
   async connect () {
     this.log('Connecting...');
 
     if (this.config.token) {
-      this.slack = new SlackSDK.WebClient(this.config.token);
-      this.connection = new SlackSDK.RTMClient(this.config.token);
+      this.slack = new WebClient(this.config.token);
+      this.connection = new RTMClient(this.config.token);
       this.connection.on('ready', this.ready.bind(this));
       this.connection.on('message', this.handler.bind(this));
       this.connection.on('team_join', this._handleUserCreation.bind(this));
@@ -65,8 +75,7 @@ class Slack extends Fabric.Service {
 
   async join (channel) {
     try {
-      // TODO: complain about Slack still not supporting this for bot users
-      this.slack.channels.join({ channel: channel });
+      await this.slack.conversations.join({ channel: channel });
     } catch (E) {
       this.error(`Could not join "${channel}":`, E);
     }
@@ -90,7 +99,7 @@ class Slack extends Fabric.Service {
 
     if (result && result.user) {
       await this._registerUser(result.user);
-      user = this._GET(`/actors/${id}`);
+      user = await this._GET(`/actors/${id}`);
     }
 
     return user;
@@ -108,7 +117,7 @@ class Slack extends Fabric.Service {
 
     if (result && result.channel) {
       await this._registerChannel(result.channel);
-      channel = this._GET(`/channels/${id}`);
+      channel = await this._GET(`/channels/${id}`);
     }
 
     return channel;
@@ -127,7 +136,7 @@ class Slack extends Fabric.Service {
   }
 
   async _getChannels () {
-    let result = await this.slack.channels.list();
+    let result = await this.slack.conversations.list({ types: 'public_channel' });
 
     if (this.config.mirror) {
       for (let i in result.channels) {
@@ -194,14 +203,17 @@ class Slack extends Fabric.Service {
     let online = (event.presence === 'active');
 
     await this._registerUser({ id: event.user });
-    await this._updatePresence(event.user, online);
+    await this._PUT(`/actors/${event.user}/online`, online);
+    this.emit('presence', { user: event.user, status: online ? 'online' : 'offline' });
 
     return this;
   }
 
   async ready () {
     let service = this;
-    let identity = await this.slack.auth.test().catch(service.error);
+    let identity = await this.slack.auth.test().catch((e) => service.error(e));
+    // `auth.test()` failed (bad token, network): already reported via `error`.
+    if (!identity) return this;
 
     service.agent = Object.assign({
       id: identity.user_id

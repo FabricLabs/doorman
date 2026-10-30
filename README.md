@@ -120,6 +120,294 @@ doorman.use(plugin);
 doorman.start();
 ```
 
+## Web Console
+Doorman serves a **read-only status console** from its bundled `@fabric/http`
+server (default `http://localhost:4444/`). It lists enabled services, loaded
+plugins with their triggers and `report()` output, and aggregate event
+counters (messages, presence, joins, …) that update live. It never shows
+message content, user ids, or tokens.
+
+Build the UI once (webpack bundle + HTML shell), then start as usual:
+
+```bash
+npm run build   # assets/bundles/browser.min.js + assets/index.html
+npm start
+```
+
+The page is React on top of the `@fabric/hub` **Bridge** component, so it
+speaks the same WebSocket / JSON-RPC surface as a Fabric Hub. Data surfaces:
+
+| Surface | Purpose |
+|---------|---------|
+| `GET /services/doorman` | `status()` — services, plugins, triggers, counters, `startedAt` |
+| `GET /services/doorman/report` | every plugin's `report()` |
+| `GET /services/doorman/plugins/:name` | one plugin's report |
+| `POST /services/rpc` (and WebSocket `JSONCall`) | `GetDoormanStatus`, `GetDoormanReport`, `ListDoormanServices`, `ListDoormanPlugins`, `GetNetworkStatus` (Hub-shaped stub) |
+| WebSocket `GenericMessage` `{ type: 'DoormanEvent' }` | `{ kind, service, count, total }` per counted event |
+
+Configure the server under `http` in your settings (`hostname`, `interface`,
+`port`, or any `@fabric/http` `HTTPServer` option). JSON-RPC is open
+(`requireAuth: false`) because every method is read-only, so the console binds
+`127.0.0.1` by default; set `interface` (e.g. `0.0.0.0`) only when plugin
+reports are safe to expose to your network. Pass `http: false`
+to embed Doorman in a host process; `doorman.middleware()` then serves the same
+JSON API from the host's own server (see `goon.vc`'s presence service).
+
+## Scripts (managed DM conversations)
+The `scripts` plugin (`services/scripts.js`) walks one person at a time
+through a **script**: a series of steps sent by private message, such as
+onboarding a new member or connecting a server admin's community to your site.
+Scripts are plain JSON, so they can be stored, versioned, and edited while the
+bot runs. Behavior comes from the host through named hooks, never from code in
+the script.
+
+```json
+{
+  "id": "server-setup",
+  "title": "Connect your server",
+  "start": "welcome",
+  "requires": ["ManageGuild"],
+  "steps": {
+    "welcome": { "say": "Hi {{user.name}}! Let's connect **{{context.guildName}}**.", "input": { "type": "confirm" }, "next": "channel" },
+    "channel": {
+      "say": "Where should announcements go?",
+      "input": { "type": "choice", "optionsFrom": "discord.guild.textChannels", "optional": true },
+      "saveAs": "announceChannel",
+      "next": [{ "when": { "answers.announceChannel": null }, "goto": "end" }, { "goto": "org" }]
+    },
+    "org": { "say": "What's your org called?", "input": { "type": "text", "maxLength": 60 } }
+  },
+  "complete": { "say": "Saved: {{labels.announceChannel|no channel}}." },
+  "onComplete": [{ "action": "record" }]
+}
+```
+
+- **Inputs:** `none` (just say it and move on), `confirm`, `choice` (static
+  `options` or a host `optionsFrom` source; `multiple` for several), and `text`
+  (`minLength`, `maxLength`, `pattern`). Steps marked `optional` can be skipped.
+- **Templates and branches:** `say` takes `{{user.name}}`, `{{context.*}}`,
+  `{{answers.*}}`, and `{{labels.*}}`, with `{{path|fallback}}`. `next` is a
+  step id, `null` / `"end"`, or a list of `{ when, goto }` branches matched on
+  answers and context (a list value matches any of them; `null` matches a
+  skipped or missing answer).
+- **Versions:** a script's version is the sha256 of its normalized JSON. A
+  session stays on the version it started with when the script is edited.
+  Seeding from a directory adds new scripts and updates seeded ones, but never
+  overwrites a script edited at runtime.
+- **Sessions:** one open session per person and script (starting again
+  replaces it), answered steps can't be answered again ("This step has
+  passed."), and sessions expire after `ttlMs` (default one day).
+- **Hooks:** `source(name, fn)` supplies choices, `action(name, fn)` runs on
+  completion (`record` is built in: the latest answers per `subject`, e.g. a
+  server; an action may return `{ answers, labels }` for later actions, the
+  record, and the completion message, and an error it throws with
+  `expose: true` is shown to the person instead of a generic failure), and
+  `authorize(fn)` checks each `requires` entry when a session
+  starts and again before it completes. Scripts with `requires` refuse to run
+  without an authorizer.
+
+```js
+const Scripts = require('@fabric/doorman/services/scripts');
+
+doorman.use(Scripts, { path: './stores/scripts', seed: './scripts', token: process.env.SCRIPTS_TOKEN });
+const scripts = await doorman.started('scripts');
+scripts.source('discord.guild.textChannels', (scope) => listChannels(scope.context.guildId));
+scripts.authorize(async (permission, session) => memberHas(session.user, session.context.guildId, permission));
+await scripts.begin('server-setup', {
+  user: 'discord/users/123',
+  name: 'Kersa',
+  context: { guildId: '456', guildName: 'G00N SQUAD' },
+  subject: '456'
+});
+```
+
+**Rendering.** `doorman.whisper(target, step)` hands each step to the adapter
+that owns the user. The Discord adapter (with `whispers: true`, which works
+even with `replies: false`) sends buttons for up to five choices, a select
+menu (paged 25 at a time) for more, Continue for confirmations, and an Answer
+button that opens a modal for text, plus Skip and Cancel. Presses come back
+as `answer` events; the card is rewritten with the answer. People can also
+just reply in the DM ("cancel" stops). Adapters without components get a
+numbered plain-text step instead, answered by typed replies. A private reply to
+a running script is never routed to `!` triggers. A closed DM keeps Discord's
+error code (50007) so the host can tell the person.
+
+**HTTP.** With the console (or a host's `scripts.middleware()` when Doorman is
+embedded with `http: false`):
+
+| Route | Access |
+|-------|--------|
+| `GET /services/doorman/scripts` | open: every script with its version and session counts |
+| `GET /services/doorman/scripts/:id` | open: the current definition |
+| `GET /services/doorman/scripts/:id/stats` | open: session counts by outcome |
+| `PUT /services/doorman/scripts/:id` | `Authorization: Bearer <token>`: validate and store a new version |
+| `GET /services/doorman/scripts/:id/results` | `Authorization: Bearer <token>`: recorded answers |
+
+Without a `token` (or a host `authorize(req)` hook), the gated routes answer
+404. Responses never carry user ids except recorded results, which only
+authorized callers see.
+
+## Campaigns (reaching groups of members by DM)
+The `campaigns` plugin (`services/campaigns.js`) sends one message, or the
+start of a script, by private message to a group of members picked by a
+filter: platforms, servers, roles, exclusions, and recent activity. A campaign
+is saved as a `draft`, previewed, then sent now or `scheduled` for later, and
+goes out one DM at a time.
+
+```js
+const Campaigns = require('@fabric/doorman/services/campaigns');
+
+doorman.use(Campaigns, { path: './stores/campaigns', via: 'goon.vc', token: process.env.CAMPAIGNS_TOKEN });
+const campaigns = await doorman.started('campaigns');
+campaigns.audience('discord', async (filter, campaign) => listMembers(filter, campaign));
+campaigns.activity(async (target) => lastSeen(target));
+
+const draft = await campaigns.create({
+  content: { type: 'message', text: 'Fleet night is Saturday at 8pm.' },
+  filter: { roles: ['789'], excludeRoles: ['790'], activeWithinDays: 30 }
+}, { owner: { kind: 'guild', guildId: '456', guildName: 'G00N SQUAD' }, by: 'Kersa' });
+await campaigns.preview(draft.id); // { reach, optedOut, excluded, inactive, limit, over, sources }
+await campaigns.schedule(draft.id, { sendAt: '2026-11-01T18:00:00Z', by: 'Kersa' });
+```
+
+- **Content:** `{ type: 'message', text }`, or `{ type: 'script', script,
+  text }` to offer a Scripts conversation behind a Start button (the script
+  must exist when the campaign is scheduled). Text is at most 1800 characters.
+- **Filter:** `platforms`, `guilds`, `roles`, `excludeGuilds`, `excludeRoles`,
+  `excludeCampaigns` (skip whoever an earlier campaign reached), and
+  `activeWithinDays` (needs an `activity` hook; members it knows nothing about
+  count as inactive). `inactiveForDays` turns it into a check-in: only people
+  last active at least that many days ago (never-seen people are skipped,
+  counted as `unseen`; recent ones as `active`), the most inactive first, so
+  the cap keeps them too; with `activeWithinDays` it selects a window. Lists
+  hold at most 50 entries.
+- **Hooks:** `audience(platform, fn)` lists the members on one platform as
+  `{ target, name, source, sourceName }` (`source` is the server they were
+  found in, named in each DM and in the Stop button). The host applies
+  servers and roles; Campaigns merges people found in several servers, then
+  drops opt-outs, `excludeCampaigns`, and inactive members, in that order.
+- **Owners and limits:** a campaign is owned by `staff` (the default) or by a
+  `guild`. A server's campaign only ever reaches that server, at most
+  `maxAudience` people (default 500; staff `staffMaxAudience`, 10000), and one
+  per server per `guildCooldownMs` (default a day; `cooldown(owner)` says
+  until when). Scheduling over the limit is refused with the preview.
+- **Lifecycle:** `update` edits drafts only; `pause` holds a scheduled or
+  sending campaign and `resume` carries on; `cancel` stops any campaign not
+  yet `sent`, and what hasn't gone out never does.
+  The sender ticks every `intervalMs` (default 2 s) and sends one DM per tick.
+  A closed DM (Discord 50007) counts as `closed`; rate limits and other
+  temporary errors are retried `retries` times (default 3) with backoff from
+  `retryMs`. A campaign is `sent` once nothing is pending, and sending resumes
+  where it left off after a restart. Every change is in the campaign's `log`.
+- **Opting out:** every DM says who sent it ("Sent by G00N SQUAD via goon.vc")
+  and carries Stop buttons: stop messages from that server, or stop all.
+  Typing STOP, STOP ALL, or START within `stopWindowMs` (default a week) of a
+  campaign DM does the same, unless another plugin (a running script) owns
+  the reply. Opt-outs are kept forever and skipped by every later campaign.
+- **Privacy:** recipients, deliveries, and opt-outs are stored but never
+  returned; `campaign(id)` and `list()` carry counts (`stats`) only, and
+  `report()` counts by status. In-process, the plugin emits `delivered`
+  `{ campaign, title, target, at }` for each DM that goes out, so a host can
+  keep its own record (e.g. to contact someone once, however many campaigns
+  later).
+
+**Rendering.** `doorman.whisper(target, message)` hands a `CampaignMessage` to
+the adapter that owns the user. The Discord adapter (`whispers: true`) sends
+the text with a `-# Sent by …` line and Start / Stop messages from … / Stop
+all buttons (`doorman-c:<campaign>:start|stop|stopall`); the card is rewritten
+with the answer. Adapters without components get the text with "Reply START"
+/ "Reply STOP" lines instead.
+
+**HTTP.** Every route needs `Authorization: Bearer <token>` (or a host
+`authorize(req)` hook); without either they answer 404.
+
+| Route | Does |
+|-------|------|
+| `GET /services/doorman/campaigns` | every campaign, with counts |
+| `POST /services/doorman/campaigns` | create a draft (`content`, `filter`, `title`, `owner`, `by`) |
+| `GET /services/doorman/campaigns/:id` | one campaign |
+| `PATCH /services/doorman/campaigns/:id` | edit a draft |
+| `POST /services/doorman/campaigns/:id/preview` | count who it reaches now |
+| `POST /services/doorman/campaigns/:id/schedule` | send now, or at `sendAt` |
+| `POST /services/doorman/campaigns/:id/pause` · `resume` · `cancel` | hold, continue, or stop it |
+
+Refusals carry `retryAt` (cooldown) or `preview` (over the limit) next to the
+error.
+
+## Commands
+Plugins (or the host) declare platform-neutral commands. On Discord they become
+global slash commands; any other adapter that reports `supportsCommands` and
+implements `registerCommands(definitions)` can offer them too.
+
+```js
+class Jukebox extends Plugin {
+  constructor (settings) {
+    super(settings);
+    // `commands` belongs to @fabric/core's Service; plugins use `chatCommands`.
+    this.chatCommands = {
+      play: {
+        description: 'Queue a track',
+        options: [{ name: 'track', type: 'string', required: true, autocomplete: true }],
+        handler (invocation) {
+          return `Queued ${invocation.options.track}`;
+        },
+        autocomplete (invocation) {
+          return [{ name: 'Strobe', value: 'https://youtu.be/tKi9Z-f6qX4' }];
+        }
+      }
+    };
+  }
+}
+
+doorman.use(Jukebox);
+// or, from the host: doorman.command({ name, description, options }, handler)
+```
+
+Option types are `string`, `integer`, `number`, `boolean`, `user`, `channel`,
+and `role`, each with `description`, `required`, `autocomplete`, and `choices`.
+Commands are server-only unless the definition sets `dm: true`;
+`defaultMemberPermissions` limits who sees them.
+
+A handler gets one invocation: `name`, `options`, `user`
+(`<service>/users/<id>`), `userName`, `channel`, `guild`, `voice` (the
+caller's current voice channel, when they are in one), `permissions`, and
+`reply(text | { content, ephemeral })` and `defer({ ephemeral })`. Its return
+value is sent as the reply unless it already replied; a throw replies "That did
+not work." privately and is emitted as an `error`. Doorman emits `command` for
+each invocation (autocomplete excluded).
+
+The Discord adapter registers commands when it is ready, creating or updating
+only Doorman's own names (unchanged ones are skipped; the application's other
+commands are never touched), and answers only those names. It is on for an
+owned client and off for an attached one unless `commands: true`.
+
+## Voice
+`doorman.voice('<service>/channels/<id>')` returns a handle for one voice
+channel on an adapter that reports `canSpeak`:
+
+```js
+const voice = doorman.voice('discord/channels/123');
+voice.on('playing', (meta) => console.log('playing', meta));
+voice.on('idle', (meta) => console.log('finished', meta));
+await voice.play({ url: 'https://example.com/track.webm', seek: 30, meta: { id: 'track' } });
+await voice.stop();
+await voice.leave();
+```
+
+`play` takes `{ url }` (anything ffmpeg can open, with optional `headers`) or
+`{ stream }` (a Readable), plus `seek` seconds and a `meta` value passed back
+with `playing` and `idle`. A new `play` replaces the current one. Handles also
+emit `ready`, `leave`, and `error`, and leave on their own after
+`voiceIdleMs` (five minutes) without playing. `voice.userId` is the bot's own
+account id, which shows up in that channel's `join` and `part` events like
+anyone else's.
+
+On Discord this uses `@discordjs/voice` (with `@snazzah/davey` for Discord's
+voice encryption and `opusscript`) and needs **ffmpeg** on the `PATH` (or
+`ffmpeg: '/path/to/ffmpeg'`), the GuildVoiceStates intent, and the Connect and
+Speak permissions. It is on for an owned client and off for an attached one
+unless `speaks: true`.
+
 ## Message Passing API
 Doorman emits events like any other `EventEmitter`, using a simple router for
 distinguishing between messages, users, and channels on various services.  This
@@ -179,13 +467,28 @@ finally "New configuration".  Place the "API Token" into `config/index.json`:
 ```json
 {
   "slack": {
-    "token": "xoxb-0000000000000-somelongstring..."
+    "token": "<your Slack bot token>"
   }
 }
 ```
 
 ### Discord
-@naterchrdsn will need to fill this out. :)
+Create an application in the [Discord Developer Portal](https://discord.com/developers/applications),
+add a bot, and copy its token:
+
+```json
+{
+  "discord": {
+    "token": "<your Discord bot token>"
+  }
+}
+```
+
+Invite it with the `bot applications.commands` scopes. It needs View Channel
+and Send Messages where it answers, and Connect and Speak in voice channels it
+plays in. To share a gateway connection the host already runs, pass
+`{ client }` (an `@fabric/discord` instance) instead of a token; that adapter
+stays read-only unless `replies`, `whispers`, `commands`, or `speaks` is set.
 
 ## Documentation
 Documentation can be generated by running `npm run make:docs` — this will output
