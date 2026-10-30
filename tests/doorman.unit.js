@@ -299,7 +299,7 @@ describe('Doorman', function () {
       assert.strictEqual(fake.counts.presence, 1);
 
       const plugin = status.plugins.find((entry) => entry.name === 'presencecounter');
-      assert.deepStrictEqual(plugin, { name: 'presencecounter', hasReport: true, triggers: ['online'] });
+      assert.deepStrictEqual(plugin, { name: 'presencecounter', hasReport: true, triggers: ['online'], commands: [] });
 
       // Broadcast is a no-op when there is no HTTP server.
       assert.strictEqual(doorman.http, null);

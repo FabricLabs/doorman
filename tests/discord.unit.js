@@ -286,6 +286,126 @@ describe('Discord', function () {
     });
   });
 
+  describe('commands', function () {
+    const settle = () => new Promise((resolve) => setImmediate(resolve));
+    const definition = {
+      name: 'play',
+      description: 'Queue a track',
+      options: [
+        { name: 'note', type: 'string', description: 'note', required: false },
+        { name: 'track', type: 'string', description: 'URL or search', required: true, autocomplete: true }
+      ]
+    };
+
+    function rawClient (existing = []) {
+      const raw = new EventEmitter();
+      raw.created = [];
+      raw.application = {
+        commands: {
+          fetch: async () => new Map(existing.map((command) => [command.name, command])),
+          create: async (command) => { raw.created.push(command.toJSON()); }
+        }
+      };
+      return raw;
+    }
+
+    function interaction (extra = {}) {
+      const calls = [];
+      return Object.assign({
+        commandName: 'play',
+        user: { id: 'u1', username: 'alice' },
+        guildId: 'g1',
+        channelId: 'c1',
+        member: { voice: { channelId: 'v1' } },
+        memberPermissions: { toArray: () => ['ManageChannels'] },
+        options: { data: [{ name: 'track', value: 'Strobe' }], getFocused: () => ({ name: 'track', value: 'str' }) },
+        calls,
+        isChatInputCommand: () => true,
+        isAutocomplete: () => false,
+        reply: async (payload) => calls.push(['reply', payload]),
+        editReply: async (payload) => calls.push(['editReply', payload]),
+        deferReply: async (payload) => { calls.push(['deferReply', payload]); },
+        respond: async (choices) => calls.push(['respond', choices])
+      }, extra);
+    }
+
+    it('maps definitions to application commands, required options first', function () {
+      const payload = Discord.toApplicationCommand(definition);
+      assert.deepStrictEqual(payload.options.map((option) => [option.name, option.type, option.required]), [['track', 3, true], ['note', 3, false]]);
+      assert.strictEqual(payload.options[0].autocomplete, true);
+      assert.deepStrictEqual(payload.contexts, [0]);
+      assert.deepStrictEqual(Discord.toApplicationCommand(Object.assign({ dm: true }, definition)).contexts, [0, 1, 2]);
+      assert.deepStrictEqual(Discord.toReply({ content: 'hi <@1>', ephemeral: true }), { allowedMentions: { parse: [] }, content: 'hi <@1>', flags: 64 });
+    });
+
+    it('upserts only its own commands and skips unchanged ones', async function () {
+      const client = new FakeFabricDiscord();
+      const unchanged = { name: 'np', equals: () => true };
+      const foreign = { name: '1v1', equals: () => false };
+      client.client = rawClient([unchanged, foreign]);
+      const adapter = new Discord({ client, commands: true });
+      await adapter.connect();
+      const changed = await adapter.registerCommands([definition, { name: 'np', description: 'Now playing', options: [] }]);
+      assert.deepStrictEqual(changed, ['play']);
+      assert.deepStrictEqual(client.client.created.map((command) => command.name), ['play']);
+    });
+
+    it('is off for attached clients unless asked', async function () {
+      const client = new FakeFabricDiscord();
+      client.client = rawClient();
+      const adapter = new Discord({ client });
+      assert.strictEqual(adapter.supportsCommands, false);
+      assert.strictEqual(adapter.canSpeak, false);
+      assert.deepStrictEqual(await adapter.registerCommands([definition]), []);
+      assert.throws(() => adapter.voice('v1'), /voice is off/);
+    });
+
+    it('emits its own commands with reply, defer, and autocomplete, and ignores others', async function () {
+      const client = new FakeFabricDiscord();
+      client.client = rawClient();
+      const adapter = new Discord({ client, commands: true });
+      const commands = [];
+      adapter.on('command', (command) => commands.push(command));
+      await adapter.connect();
+      await adapter.registerCommands([definition]);
+      assert.strictEqual(client.client.listenerCount('interactionCreate'), 1);
+
+      const chat = interaction();
+      client.client.emit('interactionCreate', chat);
+      await settle();
+      assert.strictEqual(commands.length, 1);
+      const command = commands[0];
+      assert.deepStrictEqual([command.name, command.user, command.userName, command.channel, command.guild, command.voice], ['play', 'u1', 'alice', 'c1', 'g1', 'v1']);
+      assert.deepStrictEqual(command.options, { track: 'Strobe' });
+      assert.deepStrictEqual(command.permissions, ['ManageChannels']);
+      await command.reply('Queued');
+      assert.deepStrictEqual(chat.calls[0], ['reply', { allowedMentions: { parse: [] }, content: 'Queued' }]);
+
+      const deferred = interaction();
+      client.client.emit('interactionCreate', deferred);
+      await settle();
+      await commands[1].defer({ ephemeral: true });
+      deferred.deferred = true;
+      await commands[1].reply({ content: 'Later', ephemeral: true });
+      assert.deepStrictEqual(deferred.calls, [['deferReply', { flags: 64 }], ['editReply', { allowedMentions: { parse: [] }, content: 'Later' }]]);
+
+      const auto = interaction({ isChatInputCommand: () => false, isAutocomplete: () => true });
+      client.client.emit('interactionCreate', auto);
+      await settle();
+      assert.strictEqual(commands[2].autocomplete, true);
+      assert.deepStrictEqual(commands[2].focused, { name: 'track', value: 'str' });
+      await commands[2].respond([{ name: 'Strobe', value: 'x' }, 'plain']);
+      assert.deepStrictEqual(auto.calls[0], ['respond', [{ name: 'Strobe', value: 'x' }, { name: 'plain', value: 'plain' }]]);
+
+      const foreign = interaction({ commandName: '1v1' });
+      client.client.emit('interactionCreate', foreign);
+      await settle();
+      assert.strictEqual(commands.length, 3, 'other commands are left for the host');
+      assert.deepStrictEqual(foreign.calls, []);
+      await adapter.disconnect();
+    });
+  });
+
   it('stays idle without a token or client', async function () {
     const adapter = new Discord({});
     await adapter.connect();

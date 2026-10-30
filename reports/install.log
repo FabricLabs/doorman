@@ -1,9 +1,10 @@
 $ npm i
+npm warn skipping integrity check for git dependency ssh://git@github.com/FabricLabs/fabric.git
 npm warn gitignore-fallback No .npmignore file found, using .gitignore for file exclusion. Consider creating a .npmignore file to explicitly control published files.
 
-added 938 packages, and audited 939 packages in 1m
+added 944 packages, and audited 945 packages in 3m
 
-167 packages are looking for funding
+170 packages are looking for funding
   run `npm fund` for details
 
 found 0 vulnerabilities

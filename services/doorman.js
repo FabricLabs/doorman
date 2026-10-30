@@ -16,7 +16,19 @@ const Service = require('@fabric/core/types/service');
  * namespaced under the service name (`<service>/users/<id>`, …).
  * @private
  */
-const ADAPTER_EVENTS = ['patch', 'user', 'channel', 'join', 'part', 'presence', 'message', 'answer', 'ready', 'error'];
+const ADAPTER_EVENTS = ['patch', 'user', 'channel', 'join', 'part', 'presence', 'message', 'answer', 'command', 'ready', 'error'];
+
+/**
+ * Command names every platform accepts (Discord's rule: lowercase, 1–32).
+ * @private
+ */
+const COMMAND_NAME = /^[a-z0-9_-]{1,32}$/;
+
+/**
+ * Option types a command definition may use.
+ * @private
+ */
+const COMMAND_OPTION_TYPES = ['string', 'integer', 'number', 'boolean', 'user', 'channel', 'role'];
 
 /**
  * Base path of the read-only console JSON API served by {@link Doorman#middleware}.
@@ -28,7 +40,7 @@ const CONSOLE_BASE = '/services/doorman';
  * Adapter events the console counts (aggregates only — never content or ids).
  * @private
  */
-const COUNTED_EVENTS = ['message', 'user', 'channel', 'join', 'part', 'presence', 'answer', 'response', 'trigger'];
+const COUNTED_EVENTS = ['message', 'user', 'channel', 'join', 'part', 'presence', 'answer', 'command', 'response', 'trigger'];
 
 /**
  * Package `assets/` when it sits inside `process.cwd()` (HTTPServer refuses
@@ -52,6 +64,41 @@ function sendJson (res, status, body) {
 
 function errorMessage (error) {
   return error && error.message ? error.message : String(error);
+}
+
+/**
+ * Validate and normalize a command definition.
+ * @private
+ * @param {Object} definition
+ * @returns {Object} `{ name, description, options, dm, defaultMemberPermissions }`
+ */
+function normalizeCommand (definition) {
+  const name = String((definition && definition.name) || '');
+  if (!COMMAND_NAME.test(name)) throw new Error(`Invalid command name: "${name}"`);
+  const description = String(definition.description || name).slice(0, 100);
+  const options = (definition.options || []).map((option) => {
+    const optionName = String((option && option.name) || '');
+    if (!COMMAND_NAME.test(optionName)) throw new Error(`Invalid option name "${optionName}" on /${name}`);
+    const type = option.type || 'string';
+    if (!COMMAND_OPTION_TYPES.includes(type)) throw new Error(`Invalid option type "${type}" on /${name} ${optionName}`);
+    const normalized = {
+      name: optionName,
+      type,
+      description: String(option.description || optionName).slice(0, 100),
+      required: option.required === true
+    };
+    if (option.autocomplete === true) normalized.autocomplete = true;
+    if (Array.isArray(option.choices)) {
+      normalized.choices = option.choices.map((choice) => (choice && typeof choice === 'object')
+        ? { name: String(choice.name), value: choice.value }
+        : { name: String(choice), value: choice });
+    }
+    return normalized;
+  });
+  const out = { name, description, options };
+  if (definition.dm === true) out.dm = true;
+  if (definition.defaultMemberPermissions != null) out.defaultMemberPermissions = String(definition.defaultMemberPermissions);
+  return out;
 }
 
 function hasLifecycle (Handler) {
@@ -86,6 +133,7 @@ class Doorman extends Service {
     this._serviceListeners = {};
     this.triggers = {};
     this._triggerOwners = {};
+    this._commands = {};
     this._pluginMiddlewares = {};
     this._pluginStarts = {};
 
@@ -156,6 +204,103 @@ class Doorman extends Service {
   }
 
   /**
+   * Register a command (a Discord slash command, or the equivalent on any
+   * adapter that reports `supportsCommands`). Adapters that are already
+   * ready register it right away; others when they become ready.
+   * @param {Object} definition `{ name, description, options: [{ name, type, description, required, autocomplete, choices }], dm, defaultMemberPermissions }`
+   * @param {Function} handler `(invocation) => reply`; the reply (text or `{ content, ephemeral }`) is sent unless the handler already replied.
+   * @param {Object} [opts]
+   * @param {Function} [opts.autocomplete] `(invocation) => choices` for options marked `autocomplete`.
+   * @param {String} [opts.plugin] Owning plugin name.
+   * @returns {Doorman} Chainable method.
+   */
+  command (definition, handler, opts = {}) {
+    if (typeof handler !== 'function') throw new Error('A command needs a handler function');
+    const normalized = normalizeCommand(definition);
+    const owner = this._commands[normalized.name];
+    if (owner && owner.plugin !== (opts.plugin || null)) {
+      throw new Error(`Command /${normalized.name} already belongs to ${owner.plugin || 'the host'}`);
+    }
+    this._commands[normalized.name] = {
+      definition: normalized,
+      handler,
+      autocomplete: typeof opts.autocomplete === 'function' ? opts.autocomplete : null,
+      plugin: opts.plugin || null
+    };
+    this._syncCommands();
+    return this;
+  }
+
+  /**
+   * Every registered command definition, as adapters receive them.
+   * @returns {Object[]}
+   */
+  commandDefinitions () {
+    return Object.values(this._commands).map((entry) => entry.definition);
+  }
+
+  /**
+   * Hand the current definitions to every ready adapter that takes commands.
+   * @private
+   * @param {String} [only] Adapter name.
+   */
+  _syncCommands (only = null) {
+    const definitions = this.commandDefinitions();
+    for (const [name, service] of Object.entries(this.services)) {
+      if (only && name !== only) continue;
+      if (!service || service.supportsCommands !== true || typeof service.registerCommands !== 'function') continue;
+      const meta = this._state.content.services[name];
+      if (!meta || meta.ready !== true) continue;
+      Promise.resolve().then(() => service.registerCommands(definitions)).catch((error) => {
+        this.emit('error', `[DOORMAN:${name.toUpperCase()}] register commands: ${errorMessage(error)}`);
+      });
+    }
+  }
+
+  /**
+   * Run one invocation through its command's handler (or autocomplete).
+   * @private
+   * @param {Object} invocation Namespaced invocation from an adapter.
+   * @returns {Promise<void>}
+   */
+  async _runCommand (invocation) {
+    const entry = this._commands[invocation.name];
+    if (!entry) return;
+    const owner = entry.plugin ? this.plugins[entry.plugin] : this;
+    if (invocation.autocomplete) {
+      if (!entry.autocomplete || typeof invocation.respond !== 'function') return;
+      const choices = await entry.autocomplete.call(owner, invocation);
+      await invocation.respond(Array.isArray(choices) ? choices : []);
+      return;
+    }
+    try {
+      const result = await entry.handler.call(owner, invocation);
+      if (result != null && !invocation.replied && typeof invocation.reply === 'function') await invocation.reply(result);
+    } catch (error) {
+      this.emit('error', `[DOORMAN:COMMAND] /${invocation.name}: ${errorMessage(error)}`);
+      if (typeof invocation.reply === 'function') {
+        await invocation.reply({ content: 'That did not work.', ephemeral: true }).catch(() => {});
+      }
+    }
+  }
+
+  /**
+   * A voice channel handle on the adapter that owns it: `join()`,
+   * `play(source)`, `stop()`, `leave()`, and events `playing`, `idle`,
+   * `leave`, and `error`. The adapter must report `canSpeak`.
+   * @param {String} target Namespaced channel id (`<service>/channels/<id>`).
+   * @returns {Object} The adapter's voice handle for that channel.
+   */
+  voice (target) {
+    const parts = String(target || '').split('/');
+    if (parts.length !== 3 || parts[1] !== 'channels') throw new Error(`Not a channel: ${target}`);
+    const service = this.services[parts[0]];
+    if (!service) throw new Error(`No service "${parts[0]}" for ${target}`);
+    if (service.canSpeak !== true || typeof service.voice !== 'function') throw new Error(`Service "${parts[0]}" cannot play audio`);
+    return service.voice(parts[2]);
+  }
+
+  /**
    * Read-only console snapshot: adapters, plugins, triggers, and aggregate
    * event counters. Never includes message content, user ids, or tokens.
    * @returns {Object}
@@ -180,9 +325,11 @@ class Doorman extends Service {
       plugins: Object.keys(this.plugins).map((name) => ({
         name,
         hasReport: typeof this.plugins[name].report === 'function',
-        triggers: Object.keys(this.triggers).filter((trigger) => this._triggerOwners[trigger] === name)
+        triggers: Object.keys(this.triggers).filter((trigger) => this._triggerOwners[trigger] === name),
+        commands: Object.keys(this._commands).filter((command) => this._commands[command].plugin === name)
       })),
       triggers: Object.keys(this.triggers),
+      commands: Object.keys(this._commands),
       counts: Object.assign({}, content.counts || {})
     };
   }
@@ -434,12 +581,34 @@ class Doorman extends Service {
       }));
     });
 
+    listen('command', function (command) {
+      if (!command || !self._commands[command.name]) return;
+      const invocation = Object.assign({}, command, {
+        user: command.user ? userId(command.user) : null,
+        channel: command.channel ? channelId(command.channel) : null,
+        voice: command.voice ? channelId(command.voice) : null,
+        service: name
+      });
+      // `reply` marks the original so a handler's return value is not sent twice.
+      if (typeof command.reply === 'function') {
+        invocation.reply = async (result) => {
+          invocation.replied = true;
+          return command.reply(result);
+        };
+      }
+      if (!invocation.autocomplete) self.emit('command', invocation);
+      self._runCommand(invocation).catch((error) => {
+        self.emit('error', `[DOORMAN:${name.toUpperCase()}] command /${command.name}: ${errorMessage(error)}`);
+      });
+    });
+
     listen('ready', function () {
       const meta = self._state.content.services[name] = self._state.content.services[name] || { counts: {} };
       meta.ready = true;
       meta.readyAt = new Date().toISOString();
       self.emit('service', { name });
       self._broadcastConsole({ kind: 'service', service: name, ready: true });
+      self._syncCommands(name);
     });
 
     listen('error', function (error) {
@@ -531,6 +700,18 @@ class Doorman extends Service {
             plugin: name
           }, handler.triggers[trigger]));
         });
+      }
+
+      // `chatCommands: { <name>: { description, options, handler, autocomplete } }`
+      // (`commands` is taken: @fabric/core Service keeps its own map there).
+      if (handler.chatCommands && typeof handler.chatCommands === 'object') {
+        for (const [command, spec] of Object.entries(handler.chatCommands)) {
+          if (!spec || typeof spec.handler !== 'function') continue;
+          self.command(Object.assign({ name: command }, spec), spec.handler, {
+            autocomplete: spec.autocomplete,
+            plugin: name
+          });
+        }
       }
     } else {
       Object.keys(Handler).forEach(name => {

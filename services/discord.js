@@ -18,6 +18,13 @@ const CUSTOM_ID = /^doorman:([0-9a-f]{12}):([A-Za-z0-9_-]{1,32}):(v|select|modal
 const CAMPAIGN_PREFIX = 'doorman-c';
 const CAMPAIGN_ID = /^doorman-c:([0-9a-f]{12}):(start|stop|stopall)$/;
 const NO_MENTIONS = { parse: [] };
+const CHAT_INPUT = 1;
+const OPTION_TYPES = { string: 3, integer: 4, boolean: 5, user: 6, channel: 7, role: 8, number: 10 };
+const GUILD_CONTEXT = 0;
+const BOT_DM_CONTEXT = 1;
+const PRIVATE_CHANNEL_CONTEXT = 2;
+const GUILD_INSTALL = 0;
+const MAX_CHOICES = 25;
 
 function truncate (value, max) {
   const text = String(value == null ? '' : value);
@@ -184,6 +191,55 @@ function renderCampaign (message) {
 }
 
 /**
+ * Discord application command JSON for a Doorman command definition (see
+ * `Doorman#command`). Required options come first, as Discord requires.
+ * Guild-only unless the definition sets `dm`.
+ * @param {Object} definition Normalized Doorman command definition.
+ * @returns {Object} Application command payload.
+ */
+function toApplicationCommand (definition) {
+  const options = (definition.options || []).slice().sort((a, b) => Number(!!b.required) - Number(!!a.required)).map((option) => {
+    const out = {
+      type: OPTION_TYPES[option.type] || OPTION_TYPES.string,
+      name: option.name,
+      description: truncate(option.description || option.name, 100),
+      required: option.required === true
+    };
+    if (option.autocomplete) out.autocomplete = true;
+    if (Array.isArray(option.choices) && option.choices.length) {
+      out.choices = option.choices.slice(0, MAX_CHOICES).map((choice) => ({ name: truncate(choice.name, 100), value: choice.value }));
+    }
+    return out;
+  });
+  const command = {
+    type: CHAT_INPUT,
+    name: definition.name,
+    description: truncate(definition.description || definition.name, 100),
+    options,
+    integration_types: [GUILD_INSTALL],
+    contexts: definition.dm ? [GUILD_CONTEXT, BOT_DM_CONTEXT, PRIVATE_CHANNEL_CONTEXT] : [GUILD_CONTEXT]
+  };
+  if (definition.defaultMemberPermissions != null) command.default_member_permissions = String(definition.defaultMemberPermissions);
+  return command;
+}
+
+/**
+ * Discord reply payload from a command result: text, or `{ content,
+ * ephemeral, embeds, components }`. Never pings anyone.
+ * @param {string|Object} result
+ * @returns {Object}
+ */
+function toReply (result) {
+  const object = (result && typeof result === 'object') ? result : { content: String(result == null ? '' : result) };
+  const payload = { allowedMentions: NO_MENTIONS };
+  if (object.content != null) payload.content = truncate(object.content, MAX_CONTENT);
+  if (Array.isArray(object.embeds)) payload.embeds = object.embeds;
+  if (Array.isArray(object.components)) payload.components = object.components;
+  if (object.ephemeral) payload.flags = EPHEMERAL;
+  return payload;
+}
+
+/**
  * Discord adapter built on the suite's `@fabric/discord` service.
  *
  * Two modes:
@@ -194,11 +250,18 @@ function renderCampaign (message) {
  *    sends private messages unless `settings.whispers` is true.
  *
  * Emits the Doorman adapter events `message`, `join`, `part`, `presence`,
- * `user`, `answer`, `ready`, and `error`. Presence is derived from
+ * `user`, `answer`, `command`, `ready`, and `error`. Presence is derived from
  * voice-channel occupancy (non-privileged intents only). Direct messages
  * arrive as `message` with `private: true` (the client needs the
  * DirectMessages intent and the Channel partial); presses on script step
  * controls (`doorman:` custom ids) arrive as `answer`.
+ *
+ * Commands (`settings.commands`, default on for owned clients): Doorman's
+ * definitions become global slash commands, upserted by name so the
+ * application's other commands are left alone, and only those names are
+ * answered. Voice (`settings.speaks`, default on for owned clients):
+ * `voice(channelId)` returns a {@link DiscordVoice} handle that plays audio
+ * through ffmpeg (needs the GuildVoiceStates intent, Connect and Speak).
  */
 class Discord extends Service {
   constructor (settings = {}) {
@@ -211,6 +274,12 @@ class Discord extends Service {
       client: null,
       replies: null, // default: owned client replies, attached client is read-only
       whispers: null, // default: owned client sends DMs, attached client does not
+      commands: null, // default: owned client registers and answers Doorman commands, attached client does not
+      speaks: null, // default: owned client may join voice and play audio, attached client may not
+      voice: null, // `@discordjs/voice` module (injectable for tests)
+      ffmpeg: 'ffmpeg',
+      spawn: null, // child_process.spawn (injectable for tests)
+      voiceIdleMs: 5 * 60 * 1000,
       autoCommands: false
     }, settings);
 
@@ -221,6 +290,8 @@ class Discord extends Service {
     this._listeners = {};
     this._interactionClient = null;
     this._steps = new Map();
+    this._commandNames = new Set();
+    this._voices = new Map();
     this._onInteraction = (interaction) => {
       this._handleInteraction(interaction).catch((error) => this.emit('error', error));
     };
@@ -235,6 +306,21 @@ class Discord extends Service {
 
   get canWhisper () {
     if (this.settings.whispers != null) return !!this.settings.whispers;
+    return this.owned;
+  }
+
+  get canCommand () {
+    if (this.settings.commands != null) return !!this.settings.commands;
+    return this.owned;
+  }
+
+  /** Doorman hands this adapter its command definitions (`registerCommands`). */
+  get supportsCommands () {
+    return this.canCommand;
+  }
+
+  get canSpeak () {
+    if (this.settings.speaks != null) return !!this.settings.speaks;
     return this.owned;
   }
 
@@ -278,10 +364,10 @@ class Discord extends Service {
     this._bound = false;
   }
 
-  /** Listen for presses on script step controls on the discord.js client (which an owned client replaces on start). */
+  /** Listen for presses on script step controls and for commands on the discord.js client (which an owned client replaces on start). */
   _bindInteractions () {
     const raw = this.client && this.client.client;
-    if (!this.canWhisper || !raw || typeof raw.on !== 'function' || this._interactionClient === raw) return;
+    if (!(this.canWhisper || this.canCommand) || !raw || typeof raw.on !== 'function' || this._interactionClient === raw) return;
     this._unbindInteractions();
     raw.on('interactionCreate', this._onInteraction);
     this._interactionClient = raw;
@@ -309,6 +395,8 @@ class Discord extends Service {
    * @returns {Promise<void>}
    */
   async _handleInteraction (interaction) {
+    if (this._isOwnCommand(interaction)) return this._handleCommand(interaction);
+    if (!this.canWhisper) return;
     const campaign = parseCampaignId(interaction && interaction.customId);
     if (campaign) return this._handleCampaign(interaction, campaign);
     const parsed = parseCustomId(interaction && interaction.customId);
@@ -345,6 +433,137 @@ class Discord extends Service {
       action,
       respond: (result) => this._respond(interaction, result)
     });
+  }
+
+  /**
+   * Create or update Doorman's global commands, leaving the application's
+   * other commands alone. Unchanged commands are skipped. Only these names
+   * are answered afterwards.
+   * @param {Object[]} definitions Normalized Doorman command definitions.
+   * @returns {Promise<string[]>} Names created or updated.
+   */
+  async registerCommands (definitions = []) {
+    if (!this.canCommand) return [];
+    this._commandNames = new Set(definitions.map((definition) => definition.name));
+    this._bindInteractions();
+    const raw = this.client && this.client.client;
+    const application = raw && raw.application;
+    if (!application || !application.commands) return [];
+    const fetched = await application.commands.fetch();
+    const existing = fetched && typeof fetched.values === 'function' ? [...fetched.values()] : [];
+    const changed = [];
+    for (const definition of definitions) {
+      const payload = toApplicationCommand(definition);
+      const current = existing.find((command) => command.name === payload.name);
+      if (current && typeof current.equals === 'function' && current.equals(payload)) continue;
+      await application.commands.create({ toJSON: () => payload });
+      changed.push(payload.name);
+    }
+    if (changed.length) this.emit('log', `[DOORMAN:DISCORD] commands registered: /${changed.join(', /')}`);
+    return changed;
+  }
+
+  _isOwnCommand (interaction) {
+    if (!this.canCommand || !interaction || !this._commandNames.has(interaction.commandName)) return false;
+    const isChat = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+    const isAutocomplete = typeof interaction.isAutocomplete === 'function' && interaction.isAutocomplete();
+    return isChat || isAutocomplete;
+  }
+
+  /**
+   * The caller's current voice channel in the interaction's server, from the
+   * client's voice state cache (GuildVoiceStates intent).
+   * @param {Object} interaction
+   * @returns {string|null}
+   */
+  _callerVoiceChannel (interaction) {
+    const member = interaction.member;
+    if (member && member.voice && member.voice.channelId) return String(member.voice.channelId);
+    const guild = interaction.guild;
+    const state = guild && guild.voiceStates && guild.voiceStates.cache && interaction.user
+      ? guild.voiceStates.cache.get(interaction.user.id)
+      : null;
+    return state && state.channelId ? String(state.channelId) : null;
+  }
+
+  /**
+   * Emit `command` for a chat-input or autocomplete interaction on one of
+   * Doorman's commands, with `reply`, `defer`, and (autocomplete) `respond`.
+   * @param {Object} interaction discord.js Interaction
+   * @returns {Promise<void>}
+   */
+  async _handleCommand (interaction) {
+    const user = interaction.user ? String(interaction.user.id) : null;
+    const guild = interaction.guildId ? String(interaction.guildId) : null;
+    const base = {
+      name: interaction.commandName,
+      user,
+      userName: (user && this.displayName(user, guild)) || (interaction.user && (interaction.user.globalName || interaction.user.username)) || null,
+      channel: interaction.channelId ? String(interaction.channelId) : null,
+      guild,
+      voice: this._callerVoiceChannel(interaction),
+      permissions: interaction.memberPermissions && typeof interaction.memberPermissions.toArray === 'function'
+        ? interaction.memberPermissions.toArray()
+        : [],
+      options: {}
+    };
+    const data = (interaction.options && Array.isArray(interaction.options.data)) ? interaction.options.data : [];
+    for (const option of data) base.options[option.name] = option.value;
+
+    if (typeof interaction.isAutocomplete === 'function' && interaction.isAutocomplete()) {
+      const focused = interaction.options && typeof interaction.options.getFocused === 'function'
+        ? interaction.options.getFocused(true)
+        : null;
+      this.emit('command', Object.assign(base, {
+        autocomplete: true,
+        focused: focused ? { name: focused.name, value: String(focused.value == null ? '' : focused.value) } : null,
+        respond: (choices) => interaction.respond((choices || []).slice(0, MAX_CHOICES).map((choice) => (choice && typeof choice === 'object')
+          ? { name: truncate(choice.name, 100), value: choice.value }
+          : { name: truncate(choice, 100), value: String(choice) }))
+      }));
+      return;
+    }
+
+    this.emit('command', Object.assign(base, {
+      autocomplete: false,
+      defer: (opts = {}) => interaction.deferReply(opts.ephemeral ? { flags: EPHEMERAL } : {}),
+      reply: (result) => {
+        const payload = toReply(result);
+        if (interaction.deferred || interaction.replied) {
+          delete payload.flags;
+          return interaction.editReply(payload);
+        }
+        return interaction.reply(payload);
+      }
+    }));
+  }
+
+  /**
+   * The voice handle for one voice channel. Handles are kept per channel
+   * until they leave.
+   * @param {string} channelId
+   * @returns {DiscordVoice}
+   */
+  voice (channelId) {
+    if (!this.canSpeak) throw new Error('[DOORMAN:DISCORD] voice is off');
+    const id = String(channelId || '');
+    if (!id) throw new Error('[DOORMAN:DISCORD] voice channel id required');
+    let handle = this._voices.get(id);
+    if (!handle) {
+      const DiscordVoice = require('./discordVoice');
+      handle = new DiscordVoice({
+        channelId: id,
+        client: () => this.client && this.client.client,
+        voice: this.settings.voice,
+        ffmpeg: this.settings.ffmpeg,
+        spawn: this.settings.spawn,
+        idleMs: this.settings.voiceIdleMs
+      });
+      handle.on('leave', () => { if (this._voices.get(id) === handle) this._voices.delete(id); });
+      handle.on('error', (error) => this.emit('error', error));
+      this._voices.set(id, handle);
+    }
+    return handle;
   }
 
   /**
@@ -464,6 +683,10 @@ class Discord extends Service {
   }
 
   async disconnect () {
+    for (const handle of [...this._voices.values()]) {
+      try { await handle.leave(); } catch (_) { /* already gone */ }
+    }
+    this._voices.clear();
     this._unbind();
     if (this.owned && this.client) {
       try { await this.client.stop(); } catch (_) { /* already down */ }
@@ -523,3 +746,5 @@ module.exports.renderStep = renderStep;
 module.exports.renderModal = renderModal;
 module.exports.parseCampaignId = parseCampaignId;
 module.exports.renderCampaign = renderCampaign;
+module.exports.toApplicationCommand = toApplicationCommand;
+module.exports.toReply = toReply;
