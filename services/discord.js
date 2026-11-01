@@ -1,6 +1,7 @@
 'use strict';
 
 const Service = require('@fabric/core/types/service');
+const { RANK, memberDisplayName, preferName } = require('../functions/displayName');
 
 const PREFIX = 'doorman';
 const ACTION_ROW = 1;
@@ -280,7 +281,8 @@ class Discord extends Service {
       ffmpeg: 'ffmpeg',
       spawn: null, // child_process.spawn (injectable for tests)
       voiceIdleMs: 5 * 60 * 1000,
-      autoCommands: false
+      autoCommands: false,
+      guildId: null // Home server: its display name outranks every other name.
     }, settings);
 
     this.client = this.settings.client || null;
@@ -594,31 +596,95 @@ class Discord extends Service {
     return interaction.followUp({ content: truncate(result.error || 'That did not work.', MAX_CONTENT), flags: EPHEMERAL, allowedMentions: NO_MENTIONS });
   }
 
+  _homeId () {
+    return this.settings.guildId ? String(this.settings.guildId) : null;
+  }
+
+  _discord () {
+    return this.client && this.client.client;
+  }
+
+  _guilds () {
+    const discord = this._discord();
+    const cache = discord && discord.guilds && discord.guilds.cache;
+    return cache && typeof cache.values === 'function' ? [...cache.values()] : [];
+  }
+
+  /**
+   * Name as shown in one guild, or from the user cache when no guild is given.
+   * @param {string} userId
+   * @param {string} [guildId]
+   * @returns {{ name: string, rank: number }|null}
+   */
+  nameFor (userId, guildId) {
+    const id = String(userId);
+    const home = this._homeId();
+    if (guildId) {
+      const guild = this._guilds().find((entry) => String(entry.id) === String(guildId));
+      const member = guild && guild.members && guild.members.cache ? guild.members.cache.get(id) : null;
+      const named = memberDisplayName(member, member && member.user, { home: !!(home && String(guildId) === home) });
+      if (named) return named;
+    }
+    return this._cachedUserName(id);
+  }
+
+  /**
+   * The most authoritative name cached for this user. The home server's
+   * display name wins; then a nickname elsewhere; then a global name; then
+   * a username.
+   * @param {string} userId
+   * @returns {{ name: string, rank: number }|null}
+   */
+  bestName (userId) {
+    const home = this._homeId();
+    const guilds = this._guilds().sort((a, b) => (String(a.id) === home ? 0 : 1) - (String(b.id) === home ? 0 : 1));
+    let best = null;
+    for (const guild of guilds) best = preferName(best, this.nameFor(userId, guild.id));
+    return preferName(best, this._cachedUserName(userId));
+  }
+
+  /**
+   * The home server's display name, fetched when it isn't cached.
+   * @param {string} userId
+   * @returns {Promise<{ name: string, rank: number }|null>}
+   */
+  async homeName (userId) {
+    const home = this._homeId();
+    if (!home) return null;
+    const cached = this.nameFor(userId, home);
+    if (cached && cached.rank >= RANK.home) return cached;
+    const guild = this._guilds().find((entry) => String(entry.id) === home);
+    if (!guild || !guild.members || typeof guild.members.fetch !== 'function') return cached;
+    const member = await guild.members.fetch(String(userId)).catch(() => null);
+    return preferName(cached, memberDisplayName(member, member && member.user, { home: true }));
+  }
+
+  _cachedUserName (userId) {
+    const discord = this._discord();
+    const user = discord && discord.users && discord.users.cache ? discord.users.cache.get(String(userId)) : null;
+    if (user) return memberDisplayName(null, user, { home: false });
+    const stored = this.client && this.client._state && this.client._state.content && this.client._state.content.users
+      ? this.client._state.content.users[userId]
+      : null;
+    if (!stored) return null;
+    return memberDisplayName(null, { globalName: stored.displayName, username: stored.username }, { home: false });
+  }
+
   /**
    * Best display name for a Discord user from what the client already caches
    * (guild member nickname, global name, username, then the stored catalog).
    * @param {string} userId
-   * @param {string} [guildId]
+   * @param {string} [guildId] That server's name; omit for the best cached name.
    * @returns {string|null}
    */
   displayName (userId, guildId) {
-    const discord = this.client && this.client.client;
-    const guilds = discord && discord.guilds && discord.guilds.cache;
-    const guild = guilds && guildId ? guilds.get(guildId) : null;
-    const member = guild && guild.members && guild.members.cache ? guild.members.cache.get(userId) : null;
-    const user = (member && member.user) || (discord && discord.users && discord.users.cache ? discord.users.cache.get(userId) : null);
-    const stored = this.client && this.client._state && this.client._state.content && this.client._state.content.users
-      ? this.client._state.content.users[userId]
-      : null;
-    const name = (member && (member.nickname || member.displayName)) ||
-      (user && (user.globalName || user.username)) ||
-      (stored && (stored.displayName || stored.username));
-    return name ? String(name) : null;
+    const named = guildId ? this.nameFor(userId, guildId) : this.bestName(userId);
+    return named ? named.name : null;
   }
 
   _announceUser (userId, guildId) {
-    const name = this.displayName(userId, guildId);
-    if (name) this.emit('user', { id: userId, name });
+    const named = preferName(this.nameFor(userId, guildId), this.bestName(userId));
+    if (named) this.emit('user', { id: String(userId), name: named.name, rank: named.rank });
   }
 
   _handleReady () {
@@ -638,9 +704,9 @@ class Discord extends Service {
     const actor = activity.actor && activity.actor.ref;
     const target = activity.target && activity.target.ref;
     if (!actor || !target) return;
-    if (activity.actor.username) {
-      this.emit('user', { id: actor, name: activity.actor.username, online: true });
-    }
+    const named = this.bestName(actor);
+    if (named) this.emit('user', { id: actor, name: named.name, rank: named.rank, online: true });
+    else if (activity.actor.username) this.emit('user', { id: actor, name: activity.actor.username, rank: RANK.username, online: true });
     const message = {
       id: activity.object && activity.object.id,
       actor,

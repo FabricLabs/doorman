@@ -52,7 +52,7 @@ describe('Discord', function () {
       object: { id: 'm1', content: 'hello' },
       target: { id: 'y', ref: 'c1' }
     });
-    assert.deepStrictEqual(events.user[0], { id: 'u1', name: 'alice', online: true });
+    assert.deepStrictEqual(events.user[0], { id: 'u1', name: 'alice', rank: 0, online: true });
     assert.deepStrictEqual(events.message[0], { id: 'm1', actor: 'u1', target: 'c1', object: 'hello' });
 
     await adapter.send('c1', 'nope');
