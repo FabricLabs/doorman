@@ -462,8 +462,9 @@ describe('Campaigns', function () {
     PEOPLE.push({ target: 'fake/users/erin', name: 'Erin', source: 'g1', sourceName: 'G00N SQUAD', roles: ['pilot'] });
     try {
       campaigns.settings.maxAudience = 2;
-      await assert.rejects(campaigns.schedule(draft.id), /the limit is 2/);
+      await assert.rejects(campaigns.schedule(draft.id), (error) => /the limit is 2/.test(error.message) && error.preview.id === null);
       assert.strictEqual(campaigns.content.campaigns[draft.id].approved, approved);
+      assert.strictEqual(campaigns.content.campaigns[draft.id].preview.id, approved, 'the saved preview still names the approval that sends');
       campaigns.settings.maxAudience = 500;
       clock += 60 * 1000;
       await drain();

@@ -22,6 +22,8 @@ const NO_MENTIONS = { parse: [] };
 const CHAT_INPUT = 1;
 const OPTION_TYPES = { string: 3, integer: 4, boolean: 5, user: 6, channel: 7, role: 8, number: 10 };
 const GUILD_CONTEXT = 0;
+const HOME_FETCH_MS = 10 * 60 * 1000;
+const HOME_FETCH_CAP = 5000;
 const BOT_DM_CONTEXT = 1;
 const PRIVATE_CHANNEL_CONTEXT = 2;
 const GUILD_INSTALL = 0;
@@ -667,7 +669,8 @@ class Discord extends Service {
       ? this.client._state.content.users[userId]
       : null;
     if (!stored) return null;
-    return memberDisplayName(null, { globalName: stored.displayName, username: stored.username }, { home: false });
+    // The catalog's `displayName` may be one server's nickname; only a confirmed `globalName` ranks as one.
+    return memberDisplayName(null, { globalName: stored.globalName || null, username: stored.username }, { home: false });
   }
 
   /**
@@ -685,6 +688,29 @@ class Discord extends Service {
   _announceUser (userId, guildId) {
     const named = preferName(this.nameFor(userId, guildId), this.bestName(userId));
     if (named) this.emit('user', { id: String(userId), name: named.name, rank: named.rank });
+    this._refreshHomeName(userId, named);
+  }
+
+  /**
+   * When the home server's member cache misses, fetch the member and announce
+   * the home name it carries (a later, higher-ranked `user` event). At most
+   * one fetch per user every `HOME_FETCH_MS`.
+   * @param {string} userId
+   * @param {{ name: string, rank: number }|null} named what was announced
+   * @param {Object} [extra] fields to repeat on the event (`online`)
+   * @private
+   */
+  _refreshHomeName (userId, named, extra = {}) {
+    if (!this._homeId() || (named && named.rank >= RANK.home)) return;
+    const id = String(userId);
+    const now = Date.now();
+    if (!this._homeFetches) this._homeFetches = new Map();
+    if (now - (this._homeFetches.get(id) || 0) < HOME_FETCH_MS) return;
+    this._homeFetches.set(id, now);
+    if (this._homeFetches.size > HOME_FETCH_CAP) this._homeFetches.delete(this._homeFetches.keys().next().value);
+    this.homeName(id).then((home) => {
+      if (home && home.rank >= RANK.home) this.emit('user', Object.assign({ id, name: home.name, rank: home.rank }, extra));
+    }).catch(() => {});
   }
 
   _handleReady () {
@@ -707,6 +733,7 @@ class Discord extends Service {
     const named = this.bestName(actor);
     if (named) this.emit('user', { id: actor, name: named.name, rank: named.rank, online: true });
     else if (activity.actor.username) this.emit('user', { id: actor, name: activity.actor.username, rank: RANK.username, online: true });
+    if (activity.target.type !== 'dm') this._refreshHomeName(actor, named, { online: true });
     const message = {
       id: activity.object && activity.object.id,
       actor,

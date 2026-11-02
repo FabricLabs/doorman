@@ -63,6 +63,36 @@ describe('Discord', function () {
     assert.strictEqual(events.join.length, 1);
   });
 
+  it('fetches the home member when its name is not cached and announces it after the cached name', async function () {
+    const client = new FakeFabricDiscord();
+    const map = (entries) => new Map(entries);
+    const fetched = [];
+    const home = { id: 'home', members: { cache: map([]), fetch: async (id) => { fetched.push(id); return { nickname: 'HomeNick', user: { username: 'alice' } }; } } };
+    const other = { id: 'g2', members: { cache: map([['u1', { nickname: 'OtherNick', user: { username: 'alice' } }]]) } };
+    client.client = { guilds: { cache: map([['home', home], ['g2', other]]) }, users: { cache: map([]) } };
+    const adapter = new Discord({ client, guildId: 'home' });
+    const users = [];
+    adapter.on('user', (e) => users.push(e));
+    await adapter.connect();
+    const say = () => client.emit('activity', { type: 'DiscordMessage', actor: { username: 'alice', ref: 'u1' }, object: { id: 'm', content: 'hi' }, target: { ref: 'c1' } });
+    say();
+    assert.deepStrictEqual(users[0], { id: 'u1', name: 'OtherNick', rank: 20, online: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(users[1], { id: 'u1', name: 'HomeNick', rank: 40, online: true });
+    say();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(fetched, ['u1'], 'one fetch per user per window');
+    await adapter.disconnect();
+  });
+
+  it('ranks a stored catalog name as global only when it is a confirmed globalName', function () {
+    const client = new FakeFabricDiscord();
+    client._state = { content: { users: { u1: { username: 'alice', displayName: 'SomeGuildNick' }, u2: { username: 'bob', displayName: 'Bobby', globalName: 'Bobby' } } } };
+    const adapter = new Discord({ client });
+    assert.deepStrictEqual(adapter.bestName('u1'), { name: 'alice', rank: 0 });
+    assert.deepStrictEqual(adapter.bestName('u2'), { name: 'Bobby', rank: 10 });
+  });
+
   it('flags direct messages as private', async function () {
     const client = new FakeFabricDiscord();
     const adapter = new Discord({ client });

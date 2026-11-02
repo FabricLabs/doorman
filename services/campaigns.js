@@ -383,12 +383,13 @@ class Campaigns extends Service {
         campaign.approved = previous;
         throw error;
       }
-      campaign.preview = Object.assign({ id: approved, at: new Date(this.now).toISOString() }, counts);
+      const evaluated = Object.assign({ id: approved, at: new Date(this.now).toISOString() }, counts);
       if (counts.over) {
         campaign.approved = previous;
         await this._persist();
-        throw httpError(400, `This campaign would reach ${counts.reach} people; the limit is ${counts.limit}. Narrow it down first.`, { preview: Object.assign({}, campaign.preview) });
+        throw httpError(400, `This campaign would reach ${counts.reach} people; the limit is ${counts.limit}. Narrow it down first.`, { preview: evaluated });
       }
+      campaign.preview = evaluated;
       campaign.sendAt = new Date(at).toISOString();
       if (at > this.now) {
         campaign.status = 'scheduled';
