@@ -322,6 +322,9 @@ class Campaigns extends Service {
     return this._serial(async () => {
       const campaign = this._get(id);
       if (!['draft', 'scheduled'].includes(campaign.status)) throw httpError(409, `This campaign is ${campaign.status}.`);
+      if (campaign.status === 'scheduled' && campaign.approved) {
+        throw httpError(409, 'This campaign is scheduled with a preview already. Cancel it and create a new campaign to preview a changed audience.');
+      }
       const { recipients, counts } = await this._audience(campaign, { approved: false });
       const at = new Date(this.now).toISOString();
       const token = crypto.randomBytes(4).toString('hex');
@@ -352,13 +355,12 @@ class Campaigns extends Service {
       const campaign = this._get(id);
       if (!['draft', 'scheduled'].includes(campaign.status)) throw httpError(409, `This campaign is ${campaign.status}.`);
       const approval = this.content.approvals[campaign.id];
+      let approved = null;
       if (preview != null && preview !== '') {
         if (!approval || approval.preview !== String(preview)) throw httpError(409, 'This preview is out of date. Preview the campaign again to see who it reaches now.');
-        campaign.approved = approval.preview;
+        approved = approval.preview;
       } else if (this.settings.requirePreview) {
         throw httpError(409, 'Preview this campaign and send it with that preview, so whoever sends sees exactly who it reaches.');
-      } else {
-        campaign.approved = null;
       }
       let at = this.now;
       if (sendAt != null && sendAt !== '') {
@@ -371,12 +373,23 @@ class Campaigns extends Service {
         if (!scripts || !scripts.definition(campaign.content.script)) throw httpError(400, `No such script: ${campaign.content.script}`);
       }
       this._checkCooldown(campaign, at);
-      const { counts } = await this._audience(campaign);
-      campaign.preview = Object.assign({ id: campaign.approved || null, at: new Date(this.now).toISOString() }, counts);
-      if (counts.over) {
-        await this._persist();
-        throw httpError(400, `This campaign would reach ${counts.reach} people; the limit is ${counts.limit}. Narrow it down first.`, { preview: Object.assign({}, campaign.preview) });
+      // A refused request must leave a scheduled campaign sending to whom it did.
+      const previous = campaign.approved;
+      campaign.approved = approved;
+      let counts;
+      try {
+        ({ counts } = await this._audience(campaign));
+      } catch (error) {
+        campaign.approved = previous;
+        throw error;
       }
+      const evaluated = Object.assign({ id: approved, at: new Date(this.now).toISOString() }, counts);
+      if (counts.over) {
+        campaign.approved = previous;
+        await this._persist();
+        throw httpError(400, `This campaign would reach ${counts.reach} people; the limit is ${counts.limit}. Narrow it down first.`, { preview: evaluated });
+      }
+      campaign.preview = evaluated;
       campaign.sendAt = new Date(at).toISOString();
       if (at > this.now) {
         campaign.status = 'scheduled';

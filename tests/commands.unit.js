@@ -140,6 +140,28 @@ describe('Doorman commands', function () {
     doorman.command({ name: 'np' }, () => 'host again');
   });
 
+  it('reports a plugin command it cannot register and keeps the rest', function () {
+    class Clash extends Plugin {
+      constructor (settings = {}) {
+        super(settings);
+        this.chatCommands = {
+          np: { handler: () => 'plugin' },
+          'Bad Name': { handler: () => 'bad' },
+          skip: { handler: () => 'skipped' }
+        };
+      }
+    }
+    const doorman = new Doorman({ http: false, local: false });
+    const errors = [];
+    doorman.on('error', (error) => errors.push(String(error)));
+    doorman.command({ name: 'np' }, () => 'host');
+    assert.strictEqual(doorman.use(Clash, {}), doorman);
+    assert.ok(doorman.plugins.clash);
+    assert.deepStrictEqual(doorman.commandDefinitions().map((definition) => definition.name).sort(), ['np', 'skip']);
+    assert.ok(errors.some((error) => /\[DOORMAN:PLUGIN:clash\] command \/np: .*already belongs to the host/.test(error)));
+    assert.ok(errors.some((error) => /command \/Bad Name: Invalid command name/.test(error)));
+  });
+
   it('hands out voice handles only from adapters that can speak', async function () {
     const doorman = new Doorman({ http: false, local: false });
     const mute = new CommandAdapter();

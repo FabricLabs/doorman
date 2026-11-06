@@ -429,6 +429,51 @@ describe('Campaigns', function () {
     }
   });
 
+  it('keeps a scheduled campaign on its preview when asked to preview again', async function () {
+    await boot();
+    const draft = await campaigns.create({ content: { text: 'Fleet night!' }, filter: { roles: ['pilot'] } });
+    const shown = await campaigns.preview(draft.id);
+    await campaigns.schedule(draft.id, { preview: shown.id, sendAt: new Date(clock + 60 * 1000).toISOString() });
+    await assert.rejects(campaigns.preview(draft.id), (error) => error.status === 409 && /scheduled with a preview/.test(error.message));
+    clock += 60 * 1000;
+    await drain();
+    assert.strictEqual(campaigns.campaign(draft.id).status, 'sent');
+    assert.deepStrictEqual(adapter.whispers.map((entry) => entry.user), ['alice', 'carol', 'dave']);
+  });
+
+  it('a refused schedule leaves a scheduled campaign sending to its preview', async function () {
+    await boot();
+    const owner = { kind: 'guild', guildId: 'g1', guildName: 'G00N SQUAD' };
+    const draft = await campaigns.create({ content: { text: 'Fleet night!' }, filter: { roles: ['pilot'] } }, { owner });
+    const shown = await campaigns.preview(draft.id);
+    await campaigns.schedule(draft.id, { preview: shown.id, sendAt: new Date(clock + 60 * 1000).toISOString() });
+    const approved = campaigns.content.campaigns[draft.id].approved;
+    assert.strictEqual(approved, shown.id);
+
+    await assert.rejects(campaigns.schedule(draft.id, { sendAt: 'someday' }), /sendAt must be a date/);
+    assert.strictEqual(campaigns.content.campaigns[draft.id].approved, approved);
+
+    const audience = campaigns._audience.bind(campaigns);
+    campaigns._audience = () => { throw new Error('audience unavailable'); };
+    await assert.rejects(campaigns.schedule(draft.id), /audience unavailable/);
+    campaigns._audience = audience;
+    assert.strictEqual(campaigns.content.campaigns[draft.id].approved, approved);
+
+    PEOPLE.push({ target: 'fake/users/erin', name: 'Erin', source: 'g1', sourceName: 'G00N SQUAD', roles: ['pilot'] });
+    try {
+      campaigns.settings.maxAudience = 2;
+      await assert.rejects(campaigns.schedule(draft.id), (error) => /the limit is 2/.test(error.message) && error.preview.id === null);
+      assert.strictEqual(campaigns.content.campaigns[draft.id].approved, approved);
+      assert.strictEqual(campaigns.content.campaigns[draft.id].preview.id, approved, 'the saved preview still names the approval that sends');
+      campaigns.settings.maxAudience = 500;
+      clock += 60 * 1000;
+      await drain();
+    } finally {
+      PEOPLE.pop();
+    }
+    assert.deepStrictEqual(adapter.whispers.map((entry) => entry.user), ['alice', 'carol']);
+  });
+
   it('resumes sending after a restart', async function () {
     await boot();
     const draft = await campaigns.create({ content: { text: 'Hi' } });

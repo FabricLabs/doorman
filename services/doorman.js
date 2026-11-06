@@ -493,12 +493,16 @@ class Doorman extends Service {
     });
 
     listen('user', function (user) {
-      self.emit('user', {
+      const event = {
         id: userId(user.id),
-        name: user.name,
-        online: user.online || false,
-        subscriptions: []
-      });
+        name: user.name
+      };
+      // A name-only update carries no `online`, so it leaves presence as it was.
+      if (user.nameOnly === true) event.nameOnly = true;
+      else event.online = user.online || false;
+      event.subscriptions = [];
+      if (Number.isFinite(Number(user.rank))) event.rank = Number(user.rank);
+      self.emit('user', event);
     });
 
     listen('channel', function (channel) {
@@ -707,10 +711,14 @@ class Doorman extends Service {
       if (handler.chatCommands && typeof handler.chatCommands === 'object') {
         for (const [command, spec] of Object.entries(handler.chatCommands)) {
           if (!spec || typeof spec.handler !== 'function') continue;
-          self.command(Object.assign({ name: command }, spec), spec.handler, {
-            autocomplete: spec.autocomplete,
-            plugin: name
-          });
+          try {
+            self.command(Object.assign({ name: command }, spec), spec.handler, {
+              autocomplete: spec.autocomplete,
+              plugin: name
+            });
+          } catch (error) {
+            self.emit('error', `[DOORMAN:PLUGIN:${name}] command /${command}: ${errorMessage(error)}`);
+          }
         }
       }
     } else {

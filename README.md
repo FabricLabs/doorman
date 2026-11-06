@@ -434,6 +434,12 @@ For example, a `user` event might emit the following object:
 ```
 
 ### Users (the `user` event)
+`{ id, name, online, subscriptions, rank? }`. `rank` says how authoritative
+`name` is (a higher rank should not be covered by a lower one). An update that
+only names someone (e.g. the Discord adapter's home-server name, fetched after
+the member cache missed) has `nameOnly: true` and no `online`: it leaves
+presence as it was.
+
 ### Channels (the `channel` event)
 ### Messages (the `message` event)
 ### State Management (the `patch` event)
