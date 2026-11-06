@@ -58,7 +58,7 @@
   "homepage": "https://github.com/FabricLabs/doorman#readme",
   "dependencies": {
     "@discordjs/voice": "0.19.2",
-    "@fabric/core": "FabricLabs/fabric#feature/passport",
+    "@fabric/core": "FabricLabs/fabric#feature/schemas",
     "@fabric/discord": "FabricLabs/fabric-discord#feature/channels",
     "@fabric/http": "FabricLabs/fabric-http#feature/passport",
     "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/passport",
