@@ -87,6 +87,22 @@ describe('Doorman', function () {
     await doorman.stop();
   });
 
+  it('passes a name-only user update on without an online flag', async function () {
+    const doorman = new Doorman({ http: false, local: false });
+    const adapter = new FakeAdapter();
+    const users = [];
+    doorman.on('user', (e) => users.push(e));
+    await doorman.start();
+    doorman.enable('fake', adapter);
+    adapter.emit('user', { id: 'alice', name: 'alice', rank: 0 });
+    adapter.emit('user', { id: 'alice', name: 'Alice', rank: 40, nameOnly: true });
+    adapter.emit('user', { id: 'alice', name: 'Alice', online: true });
+    assert.deepStrictEqual(users[0], { id: 'fake/users/alice', name: 'alice', online: false, subscriptions: [], rank: 0 });
+    assert.deepStrictEqual(users[1], { id: 'fake/users/alice', name: 'Alice', nameOnly: true, subscriptions: [], rank: 40 });
+    assert.strictEqual(users[2].online, true);
+    await doorman.stop();
+  });
+
   it('keeps a Service-based plugin prototype chain and aggregates report()', async function () {
     const doorman = new Doorman({ http: false, local: false });
     const adapter = new FakeAdapter();

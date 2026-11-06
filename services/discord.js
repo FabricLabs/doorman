@@ -296,6 +296,8 @@ class Discord extends Service {
     this._steps = new Map();
     this._commandNames = new Set();
     this._voices = new Map();
+    this._homeFetches = new Map();
+    this._generation = 0;
     this._onInteraction = (interaction) => {
       this._handleInteraction(interaction).catch((error) => this.emit('error', error));
     };
@@ -655,10 +657,22 @@ class Discord extends Service {
     if (!home) return null;
     const cached = this.nameFor(userId, home);
     if (cached && cached.rank >= RANK.home) return cached;
-    const guild = this._guilds().find((entry) => String(entry.id) === home);
-    if (!guild || !guild.members || typeof guild.members.fetch !== 'function') return cached;
+    const guild = this._homeGuild();
+    if (!guild) return cached;
     const member = await guild.members.fetch(String(userId)).catch(() => null);
     return preferName(cached, memberDisplayName(member, member && member.user, { home: true }));
+  }
+
+  /**
+   * The home guild when it is cached and can fetch members.
+   * @returns {Object|null}
+   * @private
+   */
+  _homeGuild () {
+    const home = this._homeId();
+    if (!home) return null;
+    const guild = this._guilds().find((entry) => String(entry.id) === home);
+    return guild && guild.members && typeof guild.members.fetch === 'function' ? guild : null;
   }
 
   _cachedUserName (userId) {
@@ -693,23 +707,27 @@ class Discord extends Service {
 
   /**
    * When the home server's member cache misses, fetch the member and announce
-   * the home name it carries (a later, higher-ranked `user` event). At most
-   * one fetch per user every `HOME_FETCH_MS`.
+   * the home name it carries: a later, higher-ranked `user` event marked
+   * `nameOnly` (no `online`), so it never changes presence. At most one fetch
+   * per user every `HOME_FETCH_MS`; a fetch still pending at `disconnect()`
+   * announces nothing, even after a later `connect()`.
    * @param {string} userId
    * @param {{ name: string, rank: number }|null} named what was announced
-   * @param {Object} [extra] fields to repeat on the event (`online`)
    * @private
    */
-  _refreshHomeName (userId, named, extra = {}) {
-    if (!this._homeId() || (named && named.rank >= RANK.home)) return;
+  _refreshHomeName (userId, named) {
+    if (named && named.rank >= RANK.home) return;
+    if (!this._homeGuild()) return;
     const id = String(userId);
     const now = Date.now();
-    if (!this._homeFetches) this._homeFetches = new Map();
     if (now - (this._homeFetches.get(id) || 0) < HOME_FETCH_MS) return;
+    this._homeFetches.delete(id);
     this._homeFetches.set(id, now);
     if (this._homeFetches.size > HOME_FETCH_CAP) this._homeFetches.delete(this._homeFetches.keys().next().value);
+    const generation = this._generation;
     this.homeName(id).then((home) => {
-      if (home && home.rank >= RANK.home) this.emit('user', Object.assign({ id, name: home.name, rank: home.rank }, extra));
+      if (generation !== this._generation) return;
+      if (home && home.rank >= RANK.home) this.emit('user', { id, name: home.name, rank: home.rank, nameOnly: true });
     }).catch(() => {});
   }
 
@@ -733,7 +751,7 @@ class Discord extends Service {
     const named = this.bestName(actor);
     if (named) this.emit('user', { id: actor, name: named.name, rank: named.rank, online: true });
     else if (activity.actor.username) this.emit('user', { id: actor, name: activity.actor.username, rank: RANK.username, online: true });
-    if (activity.target.type !== 'dm') this._refreshHomeName(actor, named, { online: true });
+    if (activity.target.type !== 'dm') this._refreshHomeName(actor, named);
     const message = {
       id: activity.object && activity.object.id,
       actor,
@@ -776,6 +794,8 @@ class Discord extends Service {
   }
 
   async disconnect () {
+    this._generation++;
+    this._homeFetches.clear();
     for (const handle of [...this._voices.values()]) {
       try { await handle.leave(); } catch (_) { /* already gone */ }
     }

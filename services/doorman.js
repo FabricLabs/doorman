@@ -495,10 +495,12 @@ class Doorman extends Service {
     listen('user', function (user) {
       const event = {
         id: userId(user.id),
-        name: user.name,
-        online: user.online || false,
-        subscriptions: []
+        name: user.name
       };
+      // A name-only update carries no `online`, so it leaves presence as it was.
+      if (user.nameOnly === true) event.nameOnly = true;
+      else event.online = user.online || false;
+      event.subscriptions = [];
       if (Number.isFinite(Number(user.rank))) event.rank = Number(user.rank);
       self.emit('user', event);
     });

@@ -78,10 +78,79 @@ describe('Discord', function () {
     say();
     assert.deepStrictEqual(users[0], { id: 'u1', name: 'OtherNick', rank: 20, online: true });
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepStrictEqual(users[1], { id: 'u1', name: 'HomeNick', rank: 40, online: true });
+    assert.deepStrictEqual(users[1], { id: 'u1', name: 'HomeNick', rank: 40, nameOnly: true }, 'the refresh names; it does not set presence');
     say();
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepStrictEqual(fetched, ['u1'], 'one fetch per user per window');
+    await adapter.disconnect();
+  });
+
+  it('fetches the home member after a voice join without repeating presence', async function () {
+    const client = new FakeFabricDiscord();
+    const home = { id: 'home', members: { cache: new Map(), fetch: async () => ({ nickname: 'HomeNick', user: { username: 'alice' } }) } };
+    client.client = { guilds: { cache: new Map([['home', home]]) }, users: { cache: new Map([['u1', { username: 'alice' }]]) } };
+    const adapter = new Discord({ client, guildId: 'home' });
+    const events = [];
+    adapter.on('user', (e) => events.push(['user', e]));
+    adapter.on('presence', (e) => events.push(['presence', e]));
+    await adapter.connect();
+    client.emit('voice', { guildId: 'home', userId: 'u1', oldChannelId: null, newChannelId: 'c1' });
+    client.emit('voice', { guildId: 'home', userId: 'u1', oldChannelId: 'c1', newChannelId: null });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(events.map(([name, e]) => [name, e.name || e.status]), [
+      ['user', 'alice'],
+      ['presence', 'online'],
+      ['presence', 'offline'],
+      ['user', 'HomeNick']
+    ]);
+    assert.strictEqual('online' in events[3][1], false);
+    await adapter.disconnect();
+  });
+
+  it('does not throttle the home fetch while the home guild is not cached', async function () {
+    const client = new FakeFabricDiscord();
+    const fetched = [];
+    const home = { id: 'home', members: { cache: new Map(), fetch: async (id) => { fetched.push(id); return { nickname: 'HomeNick', user: { username: 'alice' } }; } } };
+    const guilds = new Map();
+    client.client = { guilds: { cache: guilds }, users: { cache: new Map() } };
+    const adapter = new Discord({ client, guildId: 'home' });
+    const users = [];
+    adapter.on('user', (e) => users.push(e));
+    await adapter.connect();
+    const say = () => client.emit('activity', { type: 'DiscordMessage', actor: { username: 'alice', ref: 'u1' }, object: { id: 'm', content: 'hi' }, target: { ref: 'c1' } });
+    say();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(fetched, []);
+    guilds.set('home', home);
+    say();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(fetched, ['u1'], 'the first attempt that could fetch is not throttled');
+    assert.deepStrictEqual(users[users.length - 1], { id: 'u1', name: 'HomeNick', rank: 40, nameOnly: true });
+    await adapter.disconnect();
+  });
+
+  it('drops a home fetch that returns after disconnect, even after reconnecting', async function () {
+    const client = new FakeFabricDiscord();
+    const pending = [];
+    const home = { id: 'home', members: { cache: new Map(), fetch: () => new Promise((resolve) => pending.push(resolve)) } };
+    client.client = { guilds: { cache: new Map([['home', home]]) }, users: { cache: new Map() } };
+    const adapter = new Discord({ client, guildId: 'home' });
+    const users = [];
+    adapter.on('user', (e) => users.push(e));
+    await adapter.connect();
+    const say = () => client.emit('activity', { type: 'DiscordMessage', actor: { username: 'alice', ref: 'u1' }, object: { id: 'm', content: 'hi' }, target: { ref: 'c1' } });
+    say();
+    assert.strictEqual(pending.length, 1);
+    await adapter.disconnect();
+    await adapter.connect();
+    pending[0]({ nickname: 'Stale', user: { username: 'alice' } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(users.some((e) => e.name === 'Stale'), false);
+    say();
+    assert.strictEqual(pending.length, 2, 'the dropped fetch does not throttle the next connection');
+    pending[1]({ nickname: 'Fresh', user: { username: 'alice' } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(users[users.length - 1], { id: 'u1', name: 'Fresh', rank: 40, nameOnly: true });
     await adapter.disconnect();
   });
 
