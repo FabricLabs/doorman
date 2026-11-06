@@ -1,7 +1,7 @@
 $ npm i
 npm warn gitignore-fallback No .npmignore file found, using .gitignore for file exclusion. Consider creating a .npmignore file to explicitly control published files.
 
-added 932 packages, and audited 933 packages in 2m
+added 932 packages, and audited 933 packages in 1m
 
 184 packages are looking for funding
   run `npm fund` for details
